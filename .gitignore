@@ -1,0 +1,21 @@
+# Simulator Build Folders
+work/
+build/
+*.lib
+*.dll
+
+# Waveforms and Coverage Data
+*.wlf
+*.ucdb
+*.vstf
+covhtmlreport/
+
+# Logs and Transcripts
+transcript
+*.log
+coverage_report.txt
+
+# OS and IDE specific
+.DS_Store
+.vscode/
+.idea/
