@@ -20,13 +20,14 @@ module spi_sva (
     input wire        PRESETn,
     input wire        ctrl_en,
     input wire [4:0]  int_stat,
+    input wire [4:0]  int_en,
     input wire        IRQ
 );
 
-    // Aggregate IRQ is OR of all five sticky status bits (R18)
+    // Aggregate IRQ is OR of all five sticky status bits (R16)
     a_irq_agg : assert property (
         @(posedge PCLK) disable iff (!PRESETn)
-            IRQ == |int_stat
+            IRQ == |(int_stat & int_en)
     ) else $error("[ASSERTION_ERROR] a_irq_agg IRQ=%b int_stat=%b",
                   IRQ, int_stat);
 

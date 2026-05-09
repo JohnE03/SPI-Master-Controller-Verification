@@ -22,6 +22,9 @@ class spi_ref_model;
     // are modelled; students should fill in the rest.
     bit [7:0]  pred_rx_byte;
     bit [7:0]  pred_tx_byte;
+    
+    bit [4:0] shadow_int_stat = 5'b0;
+    bit [4:0] shadow_int_en   = 5'b0;
 
     function new();
         error_count  = 0;
@@ -57,6 +60,24 @@ class spi_ref_model;
             error_count++;
         end
     endtask
+
+    task update_shadow_regs(input bit [7:0] address, input bit [31:0] write_data);
+        if (address == 8'h18) begin 
+            shadow_int_en = write_data[4:0];
+            $display("[SCOREBOARD] Updated shadow_int_en to %b", shadow_int_en);
+        end
+    endtask
+
+    function void check_irq_pin(bit actual_irq_pin);
+        bit predicted_irq;
+        
+        predicted_irq = |(shadow_int_stat & shadow_int_en);
+        
+        if (actual_irq_pin !== predicted_irq) begin
+            $display("[SCOREBOARD_ERROR] IRQ mismatch! Expected: %b, Got: %b", predicted_irq, actual_irq_pin);
+            error_count++;
+        end
+    endfunction
 
 endclass
 

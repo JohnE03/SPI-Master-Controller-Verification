@@ -14,6 +14,9 @@ class spi_coverage_col;
     bit       cv_lsb_first;
     bit [1:0] cv_width;
 
+    bit [4:0] cv_int_stat;
+    bit [4:0] cv_int_en;
+
     covergroup cg_config;
         option.per_instance = 1;
         cp_mode : coverpoint cv_mode  {
@@ -31,8 +34,17 @@ class spi_coverage_col;
         cx_mode_width : cross cp_mode, cp_width;
     endgroup
 
+    covergroup cg_interrupts;
+        option.per_instance = 1;
+        cp_stat : coverpoint cv_int_stat;
+        cp_en   : coverpoint cv_int_en;
+        
+        cx_stat_en : cross cp_stat, cp_en; 
+    endgroup
+
     function new();
         cg_config = new();
+        cg_interrupts = new();
     endfunction
 
     task sample_config(input bit [1:0] mode,
@@ -42,6 +54,12 @@ class spi_coverage_col;
         cv_lsb_first = lsb_first;
         cv_width     = width;
         cg_config.sample();
+    endtask
+
+    task sample_interrupts(input bit [4:0] int_stat, input bit [4:0] int_en);
+        cv_int_stat = int_stat;
+        cv_int_en   = int_en;
+        cg_interrupts.sample();
     endtask
 
 endclass

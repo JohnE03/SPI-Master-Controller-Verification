@@ -19,6 +19,7 @@
 `include "tests/sanity_test.sv"
 `include "tests/randomized_sanity_test.sv"
 `include "tests/ral_hw_reset_test.sv"
+`include "tests/interrupt_test.sv"
 
 module tb_top;
 
@@ -58,6 +59,7 @@ module tb_top;
         .PRESETn(PRESETn),
         .ctrl_en(u_wrap.u_dut.u_regfile.ctrl_en),
         .int_stat(u_wrap.u_dut.u_regfile.int_stat),
+        .int_en (u_wrap.u_dut.u_regfile.int_en),
         .IRQ     (u_wrap.u_dut.u_regfile.IRQ)
     );
 
@@ -78,6 +80,7 @@ module tb_top;
         case (testname)
             "sanity_test"             : sanity_test::run(u_ref, u_cov);
             "randomized_sanity_test"  : randomized_sanity_test::run(u_ref, u_cov);
+            "interrupt_test"         : interrupt_test::run(u_ref, u_cov);
             "ral_hw_reset_test"    : begin
                 // SV-only scaffold does not implement the RAL bonus.
                 // Emit the TEST_SKIPPED line so the grader can award 0 for
