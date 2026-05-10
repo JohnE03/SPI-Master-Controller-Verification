@@ -17,61 +17,101 @@ class interrupt_test;
 
         $display("[INFO] interrupt_test: starting");
 
+        // ---------------------------------------------------------
+        // INITIALIZATION: Wait for reset and configure the Master
+        // ---------------------------------------------------------
         #200;
-
-        tb_top.u_apb_bfm.apb_write(APB_CTRL,    32'h0000_0003);
-        tb_top.u_apb_bfm.apb_write(APB_CLK_DIV, 32'h0000_0004);
-        tb_top.u_apb_bfm.apb_write(APB_INT_EN,  32'h0000_001F);
+        tb_top.u_apb_bfm.apb_write(APB_CTRL,    32'h0000_0003); // Enable SPI and Master mode
+        tb_top.u_apb_bfm.apb_write(APB_CLK_DIV, 32'h0000_0004); // Set a fast clock divider
+        tb_top.u_apb_bfm.apb_write(APB_INT_EN,  32'h0000_001F); // Unmute all 5 interrupt channels
         ref_model.update_shadow_regs(APB_INT_EN, 32'h0000_001F);
 
+        // Assert Slave Select to begin interactions
         tb_top.u_apb_bfm.apb_write(APB_SS_CTRL, 32'h0000_0001); 
 
+        // ---------------------------------------------------------
+        // TX EMPTY CHECK
+        // ---------------------------------------------------------
         tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);
         $display("[INFO] interrupt_test: TX Empty check = %b", rd_data[0]);
         coverage.sample_interrupts(rd_data[4:0], 5'b11111);
 
+        // ---------------------------------------------------------
+        // TRIGGER RX FULL
+        // ---------------------------------------------------------
         $display("[INFO] interrupt_test: Filling RX FIFO to trigger RX Full...");
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hAAAA_BBBB);
+            // Poll STATUS.BUSY until each transfer completes
             repeat (500) begin
                 tb_top.u_apb_bfm.apb_read(APB_STATUS, rd_data);
                 if (rd_data[0] == 1'b0) break;
             end
         end
         
+        // Verify the RX Full and Transfer Complete interrupts fired
         tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);
         $display("[INFO] interrupt_test: RX Full/TC check = %b", rd_data[4:0]);
         coverage.sample_interrupts(rd_data[4:0], 5'b11111);
 
+        // ---------------------------------------------------------
+        // TRIGGER RX OVERRUN: Push a 9th word into the full RX FIFO
+        // ---------------------------------------------------------
         $display("[INFO] interrupt_test: Triggering RX Overrun...");
-        tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hCCCC_DDDD); //fill the last slot in the RX FIFO
+        tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hCCCC_DDDD); 
         repeat (500) begin
             tb_top.u_apb_bfm.apb_read(APB_STATUS, rd_data);
             if (rd_data[0] == 1'b0) break;
         end
         
+        // Verify the RX Overrun interrupt fired (Bit 3)
         tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);
         $display("[INFO] interrupt_test: RX Overrun check = %b", rd_data[3]);
         coverage.sample_interrupts(rd_data[4:0], 5'b11111);
 
+        // ---------------------------------------------------------
+        // R17 W1C TRAP: Prove writing '0' to an active alarm does NOTHING
+        // ---------------------------------------------------------
+        $display("[INFO] interrupt_test: Executing W1C Write-0 Trap...");
+        tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_0000); // Try to clear with 0s
+        tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);        // Read back to check
+        
+        if (rd_data[3] !== 1'b1) begin
+            $display("[SCOREBOARD_ERROR] W1C failed! Writing a 0 accidentally cleared the bit.");
+            ref_model.error_count++;
+        end else begin
+            $display("[INFO] interrupt_test: Trap successful. Bit ignored the 0.");
+        end
+
+        // ---------------------------------------------------------
+        // R18 RACE CONDITION SETUP: Blast data to guarantee TX Overflow
+        // ---------------------------------------------------------
         $display("[INFO] interrupt_test: Initiating Race Condition Attack...");
         for (int i = 0; i < 9; i++) begin
             tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'h0000_00AA);
         end
 
+        // ---------------------------------------------------------
+        // Software Clear vs Hardware Set
+        // ---------------------------------------------------------
         fork
+            // Thread 1: Software tries to clear all interrupts with 1s (W1C)
             begin
                 tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_001F); 
             end
+            // Thread 2: Hardware snipes the TX Overflow bit (Bit 2) at the exact same time
             begin
                 @(posedge tb_top.apb.cb_master.penable);
-                #1; 
-                force tb_top.u_wrap.u_dut.u_regfile.int_stat[2] = 1'b1; 
-                #10;
+                #1; // 1ns delta-delay to ensure cycle-accurate alignment
+                force tb_top.u_wrap.u_dut.u_regfile.int_stat[2] = 1'b1; // Hardware forces the error HIGH
+                #10; // Hold the force for 1 clock cycle
                 release tb_top.u_wrap.u_dut.u_regfile.int_stat[2];
             end
         join
 
+        // ---------------------------------------------------------
+        // RACE CONDITION VERIFICATION
+        // ---------------------------------------------------------
         tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);
         ref_model.shadow_int_stat = rd_data[4:0];
         ref_model.check_irq_pin(tb_top.u_wrap.u_dut.u_regfile.IRQ);
@@ -83,6 +123,7 @@ class interrupt_test;
             $display("[INFO] interrupt_test: Race Condition survived!");
         end
 
+        // Cleanup: Deassert Slave Select
         tb_top.u_apb_bfm.apb_write(APB_SS_CTRL, 32'h0000_0000);
 
         $display("[INFO] interrupt_test: finished, errors=%0d", ref_model.error_count);
