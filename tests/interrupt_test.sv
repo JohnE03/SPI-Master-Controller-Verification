@@ -44,7 +44,7 @@ class interrupt_test;
         coverage.sample_interrupts(rd_data[4:0], 5'b11111);
 
         $display("[INFO] interrupt_test: Triggering RX Overrun...");
-        tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hCCCC_DDDD);
+        tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hCCCC_DDDD); //fill the last slot in the RX FIFO
         repeat (500) begin
             tb_top.u_apb_bfm.apb_read(APB_STATUS, rd_data);
             if (rd_data[0] == 1'b0) break;
