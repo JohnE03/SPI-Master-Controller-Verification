@@ -93,7 +93,7 @@ REGRESSION_SEEDS ?= 20   # 10 * 20 = 200 runs (well under the 10000 cap)
 ifeq ($(SIMULATOR),questa)
 
 VLOG_FLAGS  = -sv -timescale=1ns/1ps +acc=rn +define+SIM $(INC_DIRS)
-COV_FLAG    = -coverage +cover=bcestf
+COV_FLAG    = +cover=bcestf
 
 compile:
 	@mkdir -p build
@@ -109,8 +109,8 @@ compile:
 	   $(TB_SRCS)
 
 run: compile
-	vsim -c work.tb_top \
-	     -do "run -all; coverage save cov_$(TEST)_$(SEED).ucdb; quit -f" \
+	vsim -c -voptargs="+acc" -coverage work.tb_top \
+	     -do "coverage save -onexit cov_$(TEST)_$(SEED).ucdb; run -all; quit -f" \
 	     +TESTNAME=$(TEST) +UVM_TESTNAME=$(TEST) +SEED=$(SEED) \
 	     $(if $(filter 1,$(WAVES)), -wlf waves_$(TEST)_$(SEED).wlf,)
 
