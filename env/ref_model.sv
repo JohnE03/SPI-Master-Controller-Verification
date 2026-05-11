@@ -14,6 +14,7 @@
 
 class spi_ref_model;
 
+    localparam int FIFO_DEPTH = 8;
     // Running error count. tb_top reads this to emit the final
     // [TEST_PASSED]/[TEST_FAILED] line.
     int error_count = 0;
@@ -26,20 +27,93 @@ class spi_ref_model;
     bit [4:0] shadow_int_stat = 5'b0;
     bit [4:0] shadow_int_en   = 5'b0;
 
+
+    bit [7:0] tx_queue [$];   
+    bit [7:0] rx_queue [$];   
+
+    // sticky overflow flags 
+    //for member 5 (3my moaz)
+    bit tx_ovf_predicted = 1'b0;
+    bit rx_ovf_predicted = 1'b0;
+
     function new();
         error_count  = 0;
         pred_rx_byte = 8'h0;
         pred_tx_byte = 8'h0;
+        tx_ovf_predicted = 1'b0;
+        rx_ovf_predicted = 1'b0;
+    endfunction
+    // fifo_reset
+    //   wipe both queues and sticky flags.
+    function void fifo_reset();
+        tx_queue.delete();
+        rx_queue.delete();
+        tx_ovf_predicted = 1'b0;
+        rx_ovf_predicted = 1'b0;
     endfunction
 
-    // Predict the result of a loopback OR of an externally-fed MISO byte.
-    // For the scaffold we simply echo the byte we expect the slave BFM to
-    // return. Real submissions should model the full SPI pipeline.
+    function bit tx_full();  return (tx_queue.size() >= FIFO_DEPTH); endfunction
+    function bit rx_full();  return (rx_queue.size() >= FIFO_DEPTH); endfunction
+    function bit tx_empty(); return (tx_queue.size() == 0);          endfunction
+    function bit rx_empty(); return (rx_queue.size() == 0);          endfunction
+    function int tx_size();  return tx_queue.size();                  endfunction
+    function int rx_size();  return rx_queue.size();                  endfunction
+
+// main pushing function for the tx_queue model.
+    function void push_tx(input bit [7:0] data);
+        if (tx_full()) begin
+            tx_ovf_predicted = 1'b1;
+            $display("[REF_MODEL] push_tx: TX FIFO full – 0x%02h discarded (TX_OVF predicted)", data);
+        end else begin
+            tx_queue.push_back(data);
+            $display("[REF_MODEL] push_tx: enqueued 0x%02h  tx_size=%0d", data, tx_queue.size());
+        end
+    endfunction
+
+
     task predict_single_byte(input bit [7:0] tx_byte,
                              input bit [7:0] miso_pattern,
                              input bit       loopback);
+        bit [7:0] expected_rx;
+
+        // legacy scalar (sanity_test path) 
         pred_tx_byte = tx_byte;
-        pred_rx_byte = loopback ? tx_byte : miso_pattern;
+        expected_rx  = loopback ? tx_byte : miso_pattern;
+        pred_rx_byte = expected_rx;
+
+        //  model DUT's automatic RX-FIFO push on transfer completion 
+        if (rx_full()) begin
+            // R14: transfer completes while RX_FULL → word discarded, RX_OVF set
+            rx_ovf_predicted = 1'b1;
+            $display("[REF_MODEL] predict_single_byte: RX FIFO full – 0x%02h discarded (RX_OVF predicted)", expected_rx);
+        end else begin
+            rx_queue.push_back(expected_rx);
+            $display("[REF_MODEL] predict_single_byte: RX enqueued 0x%02h  rx_size=%0d", expected_rx, rx_queue.size());
+        end
+    endtask
+
+    task pop_and_check_rx(input bit [31:0] observed);
+        bit [7:0] obs8 = observed[7:0];
+        bit [7:0] exp8;
+
+        if (rx_empty()) begin
+            // R15: read while empty → hardware returns 0x00, no error flag
+            exp8 = 8'h00;
+            if (obs8 !== exp8) begin
+                $display("[SCOREBOARD_ERROR] pop_and_check_rx (empty): expected=0x%02h observed=0x%02h",
+                         exp8, obs8);
+                error_count++;
+            end else
+                $display("[REF_MODEL] pop_and_check_rx (empty): PASS 0x00 – R15 OK");
+        end else begin
+            exp8 = rx_queue.pop_front();
+            if (obs8 !== exp8) begin
+                $display("[SCOREBOARD_ERROR] pop_and_check_rx: expected=0x%02h observed=0x%02h",
+                         exp8, obs8);
+                error_count++;
+            end else
+                $display("[REF_MODEL] pop_and_check_rx: PASS 0x%02h  rx_size=%0d", obs8, rx_queue.size());
+        end
     endtask
 
     task check_rx(input bit [31:0] observed);
