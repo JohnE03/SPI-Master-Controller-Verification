@@ -57,7 +57,7 @@ class interrupt_test;
         // ---------------------------------------------------------
         // TRIGGER RX OVERRUN: Push a 9th word into the full RX FIFO
         // ---------------------------------------------------------
-        $display("[INFO] interrupt_test: Triggering RX Overrun...");
+        $display("[INFO] interrupt_test: Triggering RX Overrun: Push a 9th word into the full RX FIFO");
         tb_top.u_apb_bfm.apb_write(APB_TX_DATA, 32'hCCCC_DDDD); 
         repeat (500) begin
             tb_top.u_apb_bfm.apb_read(APB_STATUS, rd_data);
@@ -70,7 +70,7 @@ class interrupt_test;
         coverage.sample_interrupts(rd_data[4:0], 5'b11111);
 
         // ---------------------------------------------------------
-        // R17 W1C TRAP: Prove writing '0' to an active alarm does NOTHING
+        // R17 W1C TRAP & CLEAR: Prove writing '0' does nothing, and '1' clears
         // ---------------------------------------------------------
         $display("[INFO] interrupt_test: Executing W1C Write-0 Trap...");
         tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_0000); // Try to clear with 0s
@@ -81,6 +81,21 @@ class interrupt_test;
             ref_model.error_count++;
         end else begin
             $display("[INFO] interrupt_test: Trap successful. Bit ignored the 0.");
+        end
+
+        // R17 FIX: REMOVE THE PHYSICAL ERROR BEFORE CLEARING
+        $display("[INFO] interrupt_test: Reading APB_RX_DATA to relieve FIFO Overrun...");
+        tb_top.u_apb_bfm.apb_read(APB_RX_DATA, rd_data); // Pulls one word out
+
+        // Now drop the actual hammer to clear RX Overrun (Bit 3)
+        $display("[INFO] interrupt_test: Executing W1C Write-1 Clear...");
+        tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_0008); 
+        tb_top.u_apb_bfm.apb_read(APB_INT_STAT, rd_data);
+        if (rd_data[3] === 1'b1) begin
+            $display("[SCOREBOARD_ERROR] W1C failed! Bit did not clear after writing 1.");
+            ref_model.error_count++;
+        end else begin
+            $display("[INFO] interrupt_test: W1C successful! RX Overrun cleared.");
         end
 
         // ---------------------------------------------------------
@@ -95,9 +110,9 @@ class interrupt_test;
         // Software Clear vs Hardware Set
         // ---------------------------------------------------------
         fork
-            // Thread 1: Software tries to clear all interrupts with 1s (W1C)
+            // Thread 1: Software tries to clear TX Overflow (Bit 2) by writing 32'h0000_0004
             begin
-                tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_001F); 
+                tb_top.u_apb_bfm.apb_write(APB_INT_STAT, 32'h0000_0004); 
             end
             // Thread 2: Hardware snipes the TX Overflow bit (Bit 2) at the exact same time
             begin

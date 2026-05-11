@@ -49,7 +49,7 @@ class fifo_stress_test;
 
         bit [31:0] rd;
 
-=
+
         bit [7:0] tx_words [FIFO_DEPTH] = '{
             8'h10, 8'h11, 8'h12, 8'h13,
             8'h14, 8'h15, 8'h16, 8'h17
