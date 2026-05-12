@@ -40,7 +40,7 @@ static task automatic check_clk_div_hold(
         if (sclk_now != sclk_prev) begin
             edge_count++;
 
-            // added new: after a few SCLK edges, change CLK_DIV while transfer is active
+            // after a few SCLK edges, change CLK_DIV while transfer is active
             if ((edge_count == 4) && !write_done) begin
                 tb_top.u_apb_bfm.apb_write(8'h10, {16'h0, new_div[15:0]});
                 write_done = 1;
@@ -48,7 +48,7 @@ static task automatic check_clk_div_hold(
                          old_div, new_div);
             end
 
-            // added new: after the write, SCLK half-period must still match old_div
+            //  after the write, SCLK half-period must still match old_div
             if (write_done && (gap_count !== expected_gap)) begin
                 $display("[SCOREBOARD_ERROR] R25 CLK_DIV hold failed: expected_gap=%0d observed_gap=%0d old_div=%0d new_div=%0d",
                          expected_gap, gap_count, old_div, new_div);
@@ -207,13 +207,9 @@ endtask
         $display("[TRACE] DIV=65535 configuration/readback completed.");  
 
 
-        // ================================================================
-// added new: R25 CLK_DIV sampled-at-transfer-start hold test
-// ================================================================
-// ================================================================
-// added new: R25 combined config hold test
+// config hold test
 // DIV, MODE, WIDTH, and LSB_FIRST must be sampled at transfer start
-// ================================================================
+
 begin
     $display("\n------------------------------------------------------------------");
     $display("[INFO] R25 combined config hold test");

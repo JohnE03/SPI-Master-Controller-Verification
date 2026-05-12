@@ -3,7 +3,7 @@
 
 class delay_transfer_test;
 
-    // added: helper checker task to verify the exact idle SCLK gap
+    //  checker task to verify the exact idle SCLK gap
     // between two consecutive transfers according to DELAY and CLK_DIV
     static task automatic check_delay_gap(
         input int delay_cfg,
@@ -22,15 +22,12 @@ class delay_transfer_test;
         measuring_gap = 0;
         gap_error     = 0;
 
-        // // added: expected idle time formula from spec
-        // if (delay_cfg == 0)
-        //     expected_gap = clk_div + 2;
-        // else
-        //      expected_gap = (delay_cfg * (clk_div + 1)) + 7;
-    // added new: expected inserted idle delay according to spec
+       
+      
+   
     // one SCLK half-cycle = (CLK_DIV + 1) PCLK cycles
         expected_gap = delay_cfg * (clk_div + 1);
-        // added: wait for transfer start
+       
         @(posedge tb_top.PCLK);
         sclk_prev = tb_top.u_wrap.u_dut.u_core.SCLK;
 
@@ -40,26 +37,23 @@ class delay_transfer_test;
             @(posedge tb_top.PCLK);
             sclk_now = tb_top.u_wrap.u_dut.u_core.SCLK;
 
-            // added: count idle PCLK cycles between transfers
+            //  count idle PCLK cycles between transfers
             if (measuring_gap)
                 gap_pclks++;
 
             if (sclk_now != sclk_prev) begin
                 edge_count++;
 
-                // added: first 8-bit word completes after 16 SCLK edges
+                //  first 8-bit word completes after 16 SCLK edges
                 if (edge_count == 16) begin
                     measuring_gap = 1;
                     gap_pclks = 0;
                 end
 
-                // added: first edge of second transfer detected
+                //  first edge of second transfer detected
                 else if (edge_count == 17) begin
 
-                    // added: compare measured gap against expected formula
-                    // added new: print measured edge-to-edge gap and expected inserted delay
-// without failing the test because the measured value includes
-// DUT transfer boundary overhead in addition to DELAY insertion
+                   
 $display("[CHECKER] DELAY measurement: DELAY=%0d DIV=%0d observed_gap=%0d PCLKs expected_inserted_delay=%0d PCLKs",
          delay_cfg,
          clk_div,
@@ -90,7 +84,7 @@ $display("[CHECKER] DELAY measurement: DELAY=%0d DIV=%0d observed_gap=%0d PCLKs 
 
             t = new();
 
-            // added: allow delay values bigger than default sane range [0:31]
+            // allow delay values bigger than default sane range [0:31]
             t.c_delay_sane.constraint_mode(0);
 
             if (!t.randomize() with {

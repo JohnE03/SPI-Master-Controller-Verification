@@ -69,7 +69,7 @@ module spi_sva (
 logic [16:0] sclk_cnt;
 logic        sclk_prev;
 logic        seen_first_edge;
-logic [15:0] sampled_div; // added new: sampled DIV for current transfer
+logic [15:0] sampled_div; //  sampled DIV for current transfer
 
 wire is_busy  = tb_top.u_wrap.u_dut.u_core.busy;
 wire sclk_pin = tb_top.u_wrap.u_dut.u_core.SCLK;
@@ -88,10 +88,10 @@ always @(posedge PCLK or negedge PRESETn) begin
         if (!is_busy) begin
             sclk_cnt        <= 0;
             seen_first_edge <= 0;
-            sampled_div     <= live_div; // added new: ready for next transfer
+            sampled_div     <= live_div; // ready for next transfer
         end
         else begin
-            // added new: latch DIV at beginning of transfer
+            
             if (!seen_first_edge)
                 sampled_div <= live_div;
 
