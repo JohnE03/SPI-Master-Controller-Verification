@@ -24,13 +24,17 @@ module spi_sva (
     input wire        IRQ
 );
 
+   
+
+
     // Aggregate IRQ is OR of all five sticky status bits (R16)
     a_irq_agg : assert property (
         @(posedge PCLK) disable iff (!PRESETn)
             IRQ == |(int_stat & int_en)
-    ) else begin$error("[ASSERTION_ERROR] a_irq_agg IRQ=%b int_stat=%b",
+    ) else begin
+        $error("[ASSERTION_ERROR] a_irq_agg IRQ=%b int_stat=%b",
                   IRQ, int_stat);
-    tb_top.u_ref.error_count++; //   assertion failure then TEST_FAILED
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1; //   assertion failure then TEST_FAILED
     end
     // When CTRL.EN deasserts, aggregate IRQ MUST be 0 within 1 cycle
     // (student should extend with the exact spec wording from R19)
@@ -39,7 +43,7 @@ module spi_sva (
             (!ctrl_en) |-> ##[0:1] (IRQ == 1'b0 || int_stat != 0)
     ) else begin
     $error("[ASSERTION_ERROR] a_irq_off_when_disabled");
-    tb_top.u_ref.error_count++;
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
     end
 
     
@@ -57,7 +61,7 @@ module spi_sva (
             ) |-> $stable(tb_top.u_wrap.u_dut.u_core.MOSI)
     ) else begin
     $error("[ASSERTION_ERROR] a_mosi_stability: MOSI changed during sample edge!");
-    tb_top.u_ref.error_count++; //   assertion failure then TEST_FAILED
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1; //   assertion failure then TEST_FAILED
     end
 
 
@@ -115,7 +119,7 @@ a_sclk_frequency: assert property (
 $error("[ASSERTION_ERROR] a_sclk_frequency: SCLK wrong half-period. Counted=%0d expected=%0d sampled_div=%0d live_div=%0d",
               sclk_cnt, sampled_div + 1, sampled_div, live_div);
 
-    tb_top.u_ref.error_count++; //   assertion failure then TEST_FAILED
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1; //   assertion failure then TEST_FAILED
 end
 
 endmodule

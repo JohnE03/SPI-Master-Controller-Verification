@@ -30,7 +30,7 @@
 `include "tests/flush_test.sv"
 
 module tb_top;
-
+int assertion_error_count = 0;
     // ----------------- Clock and reset --------------------------------------
     bit PCLK = 0;
     always #5 PCLK = ~PCLK;   // 100 MHz
@@ -130,10 +130,10 @@ module tb_top;
         // expected to have printed [SCOREBOARD_ERROR] on mismatches and
         // incremented u_ref.error_count; convert that into the final
         // PASS/FAIL line here.
-        if (u_ref.error_count == 0)
+        if ((u_ref.error_count+assertion_error_count) == 0)
             $display("[TEST_PASSED] %s", testname);
         else
-            $display("[TEST_FAILED] %s errors=%0d", testname, u_ref.error_count);
+            $display("[TEST_FAILED] %s errors=%0d", testname, u_ref.error_count+assertion_error_count);
         $finish;
     end
 
