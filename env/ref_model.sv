@@ -171,6 +171,16 @@ class spi_ref_model;
         $display("[SCOREBOARD] Prediction: Transfer should take exactly %0d PCLK cycles (Width=%0d bits, DIV=%0d)", 
                  expected_pclks, total_bits, clk_div);
     endfunction
+    // flush_test
+    task predict_flush();
+        // Rule R3: When EN drops to 0, FIFOs and shifter are held in reset.
+        // NOTE FOR MEMBER 4: When you add your queues, add tx_queue.delete() 
+        // and rx_queue.delete() inside this task!
+        
+        pred_tx_byte = 8'h0;
+        pred_rx_byte = 8'h0;
+        $display("[INFO] Scoreboard: Flush predicted (CTRL.EN dropped to 0).");
+    endtask
 
 endclass
 
