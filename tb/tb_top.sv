@@ -23,6 +23,9 @@
 `include "tests/fifo_stress_test.sv"
 `include "tests/mode_coverage_test.sv"
 `include "tests/width_coverage_test.sv"
+`include "tests/clk_div_corner_test.sv"
+`include "tests/delay_transfer_test.sv"
+
 
 module tb_top;
 
@@ -94,6 +97,8 @@ module tb_top;
             "fifo_stress_test" : fifo_stress_test::run(u_ref, u_cov);
             "randomized_sanity_test"  : randomized_sanity_test::run(u_ref, u_cov);
             "interrupt_test"         : interrupt_test::run(u_ref, u_cov);
+            "clk_div_corner_test"    : clk_div_corner_test::run(u_ref, u_cov);
+            "delay_transfer_test"   : delay_transfer_test::run(u_ref, u_cov);
             "ral_hw_reset_test"    : begin
                 // SV-only scaffold does not implement the RAL bonus.
                 // Emit the TEST_SKIPPED line so the grader can award 0 for
