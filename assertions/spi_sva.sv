@@ -38,6 +38,24 @@ module spi_sva (
             (!ctrl_en) |-> ##[0:1] (IRQ == 1'b0 || int_stat != 0)
     ) else $error("[ASSERTION_ERROR] a_irq_off_when_disabled");
 
+
+    
+    // R5: MOSI must be stable for at least 1 PCLK around the sample edge.
+    // We determine the sample edge based on CPOL (cfg_mode[1]) and CPHA (cfg_mode[0]).
+    // Since this SVA is bound to u_regfile, we use absolute hierarchical paths to reach u_core.
+    wire cpol = tb_top.u_wrap.u_dut.u_core.cfg_mode[1];
+    wire cpha = tb_top.u_wrap.u_dut.u_core.cfg_mode[0];
+    wire sclk_rose = $rose(tb_top.u_wrap.u_dut.u_core.SCLK);
+    wire sclk_fell = $fell(tb_top.u_wrap.u_dut.u_core.SCLK);
+    
+    // Calculate if the current PCLK cycle contains a sample edge
+    wire is_sample_edge = cpha ? (cpol ? sclk_rose : sclk_fell) : (cpol ? sclk_fell : sclk_rose);
+
+    a_mosi_stability: assert property (
+        @(posedge PCLK) disable iff (!PRESETn || !tb_top.u_wrap.u_dut.u_core.busy)
+            is_sample_edge |-> $stable(tb_top.u_wrap.u_dut.u_core.MOSI)
+    ) else $error("[ASSERTION_ERROR] a_mosi_stability: MOSI changed during sample edge!");
+
 endmodule
 
 `endif // SPI_SVA_SV

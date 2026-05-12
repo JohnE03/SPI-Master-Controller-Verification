@@ -21,6 +21,8 @@
 `include "tests/ral_hw_reset_test.sv"
 `include "tests/interrupt_test.sv"
 `include "tests/fifo_stress_test.sv"
+`include "tests/mode_coverage_test.sv"
+`include "tests/width_coverage_test.sv"
 
 module tb_top;
 
@@ -34,17 +36,26 @@ module tb_top;
     apb_if apb (.pclk(PCLK), .presetn(PRESETn));
     spi_if spi (.pclk(PCLK));
 
-    // Local signals used only by the slave BFM
-    logic [1:0] bfm_mode    = 2'b00;
-    logic [7:0] bfm_pattern = 8'hA5;
+   // Local signals used only by the slave BFM
+    logic [1:0]  bfm_mode      = 2'b00;
+    logic [31:0] bfm_pattern   = 32'hA5A5_A5A5; // Upgraded to 32-bit
+    logic [1:0]  bfm_width     = 2'b00;         // 00=8, 01=16, 10=32
+    logic        bfm_lsb_first = 1'b0;          // 0=MSB, 1=LSB
+    logic [31:0] bfm_captured_mosi;
 
     // ----------------- DUT wrapper -----------------------------------------
     dut_wrapper u_wrap (.apb(apb), .spi(spi));
 
     // ----------------- BFMs -------------------------------------------------
     apb_master_bfm u_apb_bfm (.apb(apb.master));
-    spi_slave_bfm  u_spi_bfm (.spi(spi.slave), .mode(bfm_mode),
-                              .miso_byte(bfm_pattern));
+    spi_slave_bfm  u_spi_bfm (
+        .spi(spi.slave), 
+        .mode(bfm_mode),
+        .miso_byte(bfm_pattern),
+        .width(bfm_width),           
+        .lsb_first(bfm_lsb_first),   
+        .captured_mosi(bfm_captured_mosi)
+    );
 
     // ----------------- Predictor / Scoreboard / Coverage --------------------
     spi_ref_model    u_ref   = new();
@@ -98,7 +109,8 @@ module tb_top;
             // ref; BFMs reached via tb_top.u_apb_bfm / tb_top.u_spi_bfm).
             // Example:
             //   "reg_access_test"     : reg_access_test::run(u_ref, u_cov);
-            //   "mode_coverage_test"  : mode_coverage_test::run(u_ref, u_cov);
+               "mode_coverage_test"  : mode_coverage_test::run(u_ref, u_cov);
+               "width_coverage_test" : width_coverage_test::run(u_ref, u_cov);
             default : begin
                 $display("[TEST_FAILED] %s errors=1  (unknown test name)", testname);
                 $finish;
