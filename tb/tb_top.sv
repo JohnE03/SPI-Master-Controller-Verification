@@ -23,6 +23,8 @@
 `include "tests/fifo_stress_test.sv"
 `include "tests/mode_coverage_test.sv"
 `include "tests/width_coverage_test.sv"
+`include "tests/loopback_test.sv"
+`include "tests/flush_test.sv"
 
 module tb_top;
 
@@ -101,6 +103,8 @@ module tb_top;
                 $display("[TEST_SKIPPED] ral_hw_reset_test");
                 $finish;
             end
+            "loopback_test"           : loopback_test::run(u_ref, u_cov);
+            "flush_test"              : flush_test::run(u_ref, u_cov);
             // TODO: add one case arm per required test you implement.
             // The grader expects every test name listed in
             // harness/grading_interface.md Section 3 to print
