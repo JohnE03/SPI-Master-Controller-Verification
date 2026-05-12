@@ -85,7 +85,7 @@ class spi_ref_model;
         if (rx_full()) begin
             // R14: transfer completes while RX_FULL → word discarded, RX_OVF set
             rx_ovf_predicted = 1'b1;
-            $display("[REF_MODEL] predict_single_byte: RX FIFO full – 0x%02h discarded (RX_OVF predicted)", expected_rx);
+            $display("[REF_MODEL] predict_single_byte: RX FIFO full - 0x%02h discarded (RX_OVF predicted)", expected_rx);
         end else begin
             rx_queue.push_back(expected_rx);
             $display("[REF_MODEL] predict_single_byte: RX enqueued 0x%02h  rx_size=%0d", expected_rx, rx_queue.size());
@@ -151,6 +151,25 @@ class spi_ref_model;
             $display("[SCOREBOARD_ERROR] IRQ mismatch! Expected: %b, Got: %b", predicted_irq, actual_irq_pin);
             error_count++;
         end
+    endfunction
+
+    
+
+
+    function void predict_transfer_time(bit [1:0] width, bit [15:0] clk_div);
+        int total_bits;
+        int expected_pclks;
+        
+        if (width == 2'b00) total_bits = 8;
+        else if (width == 2'b01) total_bits = 16;
+        else total_bits = 32;
+
+        // Formula: SCLK period = 2 * (CLK_DIV + 1) PCLKs. 
+        // Total time = SCLK period * total bits.
+        expected_pclks = total_bits * 2 * (int'(clk_div) + 1);
+        
+        $display("[SCOREBOARD] Prediction: Transfer should take exactly %0d PCLK cycles (Width=%0d bits, DIV=%0d)", 
+                 expected_pclks, total_bits, clk_div);
     endfunction
 
 endclass
