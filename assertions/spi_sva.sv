@@ -65,7 +65,41 @@ module spi_sva (
     end
 
 
+    // Placeholders - Adjust these to match your actual register map parameters
+     localparam [7:0] TX_DATA_ADDR = 8'h08;
+     localparam [7:0] RX_DATA_ADDR = 8'h0C;
+     localparam        BIT_TX_OVF   = 2;
+     localparam        BIT_RX_OVF   = 3;
+     logic transfer_complete; // e.g., $fell(busy)
 
+    // R13: TX Overflow
+    a_req13_tx_ovf : assert property (
+        @(posedge PCLK) disable iff (PRESETn !== 1'b1)
+            (PSEL && PENABLE && PWRITE && (PADDR == TX_DATA_ADDR) && tx_full && PREADY) |=> 
+            (status[BIT_TX_OVF] == 1'b1) && (int_stat[BIT_TX_OVF] == 1'b1)
+    ) else $error("[ASSERTION_ERROR] a_req13_tx_ovf: Writing to TX_DATA while TX_FULL=1 failed to set TX_OVF flags.");
+
+    // R14: RX Overflow
+    a_req14_rx_ovf : assert property (
+        @(posedge PCLK) disable iff (PRESETn !== 1'b1)
+            (transfer_complete && rx_full) |=> 
+            (status[BIT_RX_OVF] == 1'b1) && (int_stat[BIT_RX_OVF] == 1'b1)
+    ) else $error("[ASSERTION_ERROR] a_req14_rx_ovf: Transfer completing while RX_FULL=1 failed to set RX_OVF flags.");
+
+    // R15: Read Empty RX_DATA
+    // Part A: Returns 0 on the APB bus during the active read phase
+    a_req15_rx_empty_read_data : assert property (
+        @(posedge PCLK) disable iff (PRESETn !== 1'b1)
+            (PSEL && PENABLE && !PWRITE && (PADDR == RX_DATA_ADDR) && rx_empty && PREADY) |-> 
+            (PRDATA == 32'h0)
+    ) else $error("[ASSERTION_ERROR] a_req15_rx_empty_read_data: Reading RX_DATA while RX_EMPTY did not return 0.");
+
+    // Part B: Does NOT set the RX_OVF flag (flags should remain unchanged/untriggered)
+    a_req15_rx_empty_read_no_ovf : assert property (
+        @(posedge PCLK) disable iff (PRESETn !== 1'b1)
+            (PSEL && PENABLE && !PWRITE && (PADDR == RX_DATA_ADDR) && rx_empty && PREADY) |=> 
+            !$rose(status[BIT_RX_OVF]) && !$rose(int_stat[BIT_RX_OVF])
+    ) else $error("[ASSERTION_ERROR] a_req15_rx_empty_read_no_ovf: Reading RX_DATA while RX_EMPTY incorrectly triggered an RX_OVF.");
 
     // R8/R25: SCLK half-period must be CLK_DIV + 1 PCLKs.
     // R25: CLK_DIV must be sampled at transfer start and held for that transfer.
