@@ -116,7 +116,8 @@ $display("[CHECKER] DELAY measurement: DELAY=%0d DIV=%0d observed_gap=%0d PCLKs 
 
             // Program DELAY register
             tb_top.u_apb_bfm.apb_write(8'h20, {24'h0, t.delay_cfg});
-
+            //coverage.sample_timing(t.clk_div[15:0], t.delay_cfg[7:0]); // added    
+            coverage.sample_delay(t.delay_cfg[7:0]); // added
            gap_error = 0;
 
         fork

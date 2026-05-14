@@ -122,6 +122,23 @@ $error("[ASSERTION_ERROR] a_sclk_frequency: SCLK wrong half-period. Counted=%0d 
     tb_top.assertion_error_count = tb_top.assertion_error_count + 1; //   assertion failure then TEST_FAILED
 end
 
+// R25: sampled transfer configuration must stay stable during active transfer  
+
+
+a_r25_xfer_config_stable:
+assert property (
+    @(posedge PCLK) disable iff (!PRESETn)
+    (is_busy && $past(is_busy)) |-> $stable({
+        tb_top.u_wrap.u_dut.u_core.xfer_mode,
+        tb_top.u_wrap.u_dut.u_core.xfer_lsb_first,
+        tb_top.u_wrap.u_dut.u_core.xfer_width,
+        tb_top.u_wrap.u_dut.u_core.xfer_div
+    })
+) else begin
+    $display("[ASSERTION_ERROR] R25 xfer config changed during active transfer");
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
+end
+
 endmodule
 
 `endif // SPI_SVA_SV

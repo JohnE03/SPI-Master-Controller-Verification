@@ -103,6 +103,8 @@ endtask
             $display("[TRACE] Step 1: Configuring DUT (DIV=%0d)", t.clk_div);
             tb_top.u_apb_bfm.apb_write(8'h00, {24'h0, t.width, t.loopback, t.lsb_first, t.mode, 2'b11});
             tb_top.u_apb_bfm.apb_write(8'h10, {16'h0, t.clk_div});
+            coverage.sample_clk_div(t.clk_div[15:0]);
+
 
             $display("[TRACE] Step 2: Requesting Scoreboard Timing Prediction");
             ref_model.predict_single_byte(.tx_byte(t.tx_data[7:0]), .miso_pattern(8'h00), .loopback(t.loopback));
@@ -151,6 +153,7 @@ endtask
         // Configure DUT
         tb_top.u_apb_bfm.apb_write(8'h00, {24'h0, t.width, t.loopback, t.lsb_first, t.mode, 2'b11});
         tb_top.u_apb_bfm.apb_write(8'h10, {16'h0, t.clk_div});
+        coverage.sample_clk_div(t.clk_div[15:0]);
 
         // Predict expected RX and timing
         ref_model.predict_single_byte(
@@ -197,7 +200,7 @@ endtask
 
         // Program DUT
         tb_top.u_apb_bfm.apb_write(8'h10, 32'h0000_FFFF);
-
+        coverage.sample_clk_div(16'hFFFF); 
         // Read back CLK_DIV register
         tb_top.u_apb_bfm.apb_read(8'h10, rd);
 

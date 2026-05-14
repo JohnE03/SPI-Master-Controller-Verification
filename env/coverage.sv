@@ -20,6 +20,9 @@ class spi_coverage_col;
     bit [3:0] cv_tx_occ;
     bit [3:0] cv_rx_occ;
 
+    bit [15:0] cv_clk_div;
+    bit [7:0]  cv_delay;
+
     covergroup cg_config;
         option.per_instance = 1;
         cp_mode : coverpoint cv_mode  {
@@ -69,10 +72,36 @@ class spi_coverage_col;
         cx_tx_rx_occ : cross cp_tx_occ, cp_rx_occ;
     endgroup
 
+    covergroup cg_timing;
+    option.per_instance = 1;
+
+    cp_clk_div : coverpoint cv_clk_div {
+        bins div_0     = {16'd0};
+        bins div_1     = {16'd1};
+        bins div_2     = {16'd2};
+        bins div_3     = {16'd3};
+        bins div_255   = {16'd255};
+        bins div_1024  = {16'd1024};
+        bins div_65535 = {16'd65535};
+        bins div_random = {[16'd4:16'd65534]};
+    }
+
+   cp_delay : coverpoint cv_delay {
+    bins delay_0     = {8'd0};
+    bins delay_1     = {8'd1};
+    bins delay_large = {[8'd128:8'd255]};
+}
+
+    cx_div_delay : cross cp_clk_div, cp_delay;
+endgroup
+
+
+
     function new();
         cg_config = new();
         cg_interrupts = new();
         cg_fifo_occupancy = new();
+        cg_timing = new();
     endfunction
 
     task sample_config(input bit [1:0] mode,
@@ -94,6 +123,23 @@ class spi_coverage_col;
         cv_tx_occ = tx_occ;
         cv_rx_occ = rx_occ;
         cg_fifo_occupancy.sample();
+    endtask
+
+    task sample_clk_div(input bit [15:0] clk_div);
+        cv_clk_div = clk_div;
+        cg_timing.sample();
+    endtask
+
+    task sample_delay(input bit [7:0] delay_cfg);
+        cv_delay = delay_cfg;
+        cg_timing.sample();
+    endtask
+
+    task sample_timing(input bit [15:0] clk_div,
+                    input bit [7:0]  delay_cfg);
+        cv_clk_div = clk_div;
+        cv_delay   = delay_cfg;
+        cg_timing.sample();
     endtask
 
 endclass
