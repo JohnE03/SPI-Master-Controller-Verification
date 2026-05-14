@@ -84,7 +84,7 @@ REGRESSION_TESTS = \
   error_injection_test \
   flush_test
 
-REGRESSION_SEEDS ?= 1   # 10 * 20 = 200 runs (well under the 10000 cap)
+REGRESSION_SEEDS ?= 20   # 10 * 20 = 200 runs (well under the 10000 cap)
 
 # ============================================================================
 # Questa flow (default)
