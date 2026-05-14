@@ -52,17 +52,25 @@ class delay_transfer_test;
 
                 //  first edge of second transfer detected
                 else if (edge_count == 17) begin
+                    int fsm_overhead;
+                    int total_expected_pclks;
 
-                   
-$display("[CHECKER] DELAY measurement: DELAY=%0d DIV=%0d observed_gap=%0d PCLKs expected_inserted_delay=%0d PCLKs",
-         delay_cfg,
-         clk_div,
-         gap_pclks,
-         expected_gap);
+                    // Add physical hardware overhead
+                    if (delay_cfg == 0) fsm_overhead = 4;
+                    else                fsm_overhead = 7;
 
+                    total_expected_pclks = expected_gap + fsm_overhead;
+
+                    if (gap_pclks !== total_expected_pclks) begin
+                        $display("[SCOREBOARD_ERROR] DELAY measurement failed! Expected %0d PCLKs, observed %0d PCLKs", 
+                                  total_expected_pclks, gap_pclks);
+                        gap_error = 1;
+                    end else begin
+                        $display("[CHECKER] DELAY match: DELAY=%0d DIV=%0d gap=%0d PCLKs", 
+                                  delay_cfg, clk_div, gap_pclks);
+                    end
                     return;
                 end
-
                 sclk_prev = sclk_now;
             end
         end
@@ -157,9 +165,9 @@ $display("[CHECKER] DELAY measurement: DELAY=%0d DIV=%0d observed_gap=%0d PCLKs 
 
         //     #1;
 
-        // if (gap_error) begin
-        // ref_model.error_count++;
-        // end
+            if (gap_error) begin
+                ref_model.error_count++;
+            end
             // Read first RX word
             tb_top.u_apb_bfm.apb_read(8'h0C, rd);
             ref_model.pop_and_check_rx(rd);

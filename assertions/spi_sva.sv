@@ -135,7 +135,25 @@ assert property (
         tb_top.u_wrap.u_dut.u_core.xfer_div
     })
 ) else begin
-    $display("[ASSERTION_ERROR] R25 xfer config changed during active transfer");
+    $error("[ASSERTION_ERROR] R25 xfer config changed during active transfer");
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
+    end
+
+// R21: If DELAY > 0 and TX FIFO is not empty,
+// FSM should enter S_GAP shortly after S_FINISH.
+// Allow 0-2 extra cycles because RTL may have pipeline timing.
+ 
+property p_r21_delay_state;
+    @(posedge PCLK) disable iff (!PRESETn)
+    (tb_top.u_wrap.u_dut.u_core.state == 2 &&
+     !tb_top.u_wrap.u_dut.u_core.tx_empty &&
+      tb_top.u_wrap.u_dut.u_core.cfg_delay > 0)
+    |=> ##[0:2] (tb_top.u_wrap.u_dut.u_core.state == 3);
+endproperty
+ 
+a_r21_delay_state: assert property(p_r21_delay_state)
+else begin
+    $error("[ASSERTION_ERROR] a_r21_delay_state: FSM did not enter S_GAP shortly after S_FINISH when DELAY > 0 and TX queued");
     tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
 end
 
