@@ -5,20 +5,20 @@ class mode_coverage_test;
     static task run(ref spi_ref_model ref_model, ref spi_coverage_col coverage);
         spi_txn t;
         bit [31:0] rd;
-        $display("\n==================================================================");
         $display("[INFO] mode_coverage_test: STARTING");
-        $display("==================================================================");
  
         for (int m = 0; m < 4; m++) begin
             t = new();
-            if (!t.randomize() with {
+            assert (
+                t.randomize() with {
                 mode == m;           // Force the loop mode
                 width == 2'b00;      // Pin width to 8-bit for isolation
                 lsb_first == 1'b0;   // Pin MSB-first for isolation
                 loopback == 1'b0; 
                 clk_div inside {[2:8]}; // Keep it fast
-            }) begin
-                $display("[SCOREBOARD_ERROR] spi_txn randomization failed");
+            }
+            ) else begin
+                $error("[SCOREBOARD_ERROR] spi_txn randomization failed");
                 ref_model.error_count++;
                 return;
             end

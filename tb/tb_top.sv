@@ -25,7 +25,6 @@
 `include "tests/width_coverage_test.sv"
 `include "tests/clk_div_corner_test.sv"
 `include "tests/delay_transfer_test.sv"
-
 `include "tests/loopback_test.sv"
 `include "tests/flush_test.sv"
 
