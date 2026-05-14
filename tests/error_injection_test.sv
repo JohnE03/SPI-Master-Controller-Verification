@@ -1,6 +1,4 @@
-// =============================================================================
-// error_injection_test.sv - Member 5: overflow, underflow, reserved (R13-R15,R23)
-// =============================================================================
+// error_injection_test.sv - Member 5: overflow, underflow, reserved
 `ifndef ERROR_INJECTION_TEST_SV
 `define ERROR_INJECTION_TEST_SV
 
@@ -71,10 +69,8 @@ class error_injection_test;
         tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0003);
         
         tb_top.u_apb_bfm.apb_read(8'h0C, rd);
-        if (rd !== 32'h0) begin
-            ref_model.error_count++;
-            $display("[SCOREBOARD_ERROR] R15: Empty RX read: exp=0 got=0x%08h", rd);
-        end
+        ref_model.pop_and_check_rx(rd); 
+        // -------------------------------------------------
         
         tb_top.u_apb_bfm.apb_read(8'h04, status);
         if (status[6]) begin
@@ -100,6 +96,9 @@ class error_injection_test;
         
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00BB);
+            // --- ADD THIS TO TELL THE SCOREBOARD ---
+            ref_model.predict_single_byte(8'hBB, 32'h3C, 1'b0); // 32'h3C is your bfm_pattern
+            // ---------------------------------------
         end
         
         // Wait for 8 transfers to complete
@@ -110,6 +109,10 @@ class error_injection_test;
         
         // 9th transfer
         tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00CC);
+
+        // --- ADD THIS SO THE SCOREBOARD PREDICTS OVERFLOW ---
+        ref_model.predict_single_byte(8'hCC, 32'h3C, 1'b0); 
+        // ----------------------------------------------------
         repeat (1000) begin
             tb_top.u_apb_bfm.apb_read(8'h04, rd);
             if (rd[0] == 1'b0 && rd[2] == 1'b1) break;
