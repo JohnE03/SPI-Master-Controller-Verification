@@ -74,11 +74,11 @@ module spi_sva (
     wire sys_pready  = tb_top.apb.pready;
     wire [31:0] sys_prdata = tb_top.apb.prdata;
     
-    wire sys_tx_full  = tb_top.u_wrap.u_dut.u_regfile.status[1];
-    wire sys_rx_full  = tb_top.u_wrap.u_dut.u_regfile.status[3];
-    wire sys_rx_empty = tb_top.u_wrap.u_dut.u_regfile.status[4];
-    wire sys_tx_ovf   = tb_top.u_wrap.u_dut.u_regfile.status[5];
-    wire sys_rx_ovf   = tb_top.u_wrap.u_dut.u_regfile.status[6];
+    wire sys_tx_full  = tb_top.u_wrap.u_dut.u_regfile.status_word[1];
+    wire sys_rx_full  = tb_top.u_wrap.u_dut.u_regfile.status_word[3];
+    wire sys_rx_empty = tb_top.u_wrap.u_dut.u_regfile.status_word[4];
+    wire sys_tx_ovf   = tb_top.u_wrap.u_dut.u_regfile.status_word[5];
+    wire sys_rx_ovf   = tb_top.u_wrap.u_dut.u_regfile.status_word[6];
     
     wire sys_busy = tb_top.u_wrap.u_dut.u_core.busy;
 
