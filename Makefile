@@ -13,7 +13,7 @@ WAVES     ?= 0
 
 # Resolve the project root from this file's location.
 # harness/examples/sv_only/Makefile  -> ../../..
-PROJ_ROOT  ?= .
+PROJ_ROOT  ?= ../../..
 HARNESS    ?= $(PROJ_ROOT)/harness
 STUDENT_TB ?= .
 # DUT sources (three-file golden RTL). The grader overrides DUT_SRCS to
