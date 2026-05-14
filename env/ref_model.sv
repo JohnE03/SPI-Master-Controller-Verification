@@ -18,7 +18,6 @@ class spi_ref_model;
     // Running error count. tb_top reads this to emit the final
     // [TEST_PASSED]/[TEST_FAILED] line.
     int error_count = 0;
-
     // Minimal predictor state. Only the pieces the sanity_test exercises
     // are modelled; students should fill in the rest.
     bit [7:0]  pred_rx_byte;
@@ -26,13 +25,13 @@ class spi_ref_model;
     
     bit [4:0] shadow_int_stat = 5'b0;
     bit [4:0] shadow_int_en   = 5'b0;
+    bit [31:0] shadow_status  = 32'h0; // <-- The Fix
 
 
     bit [7:0] tx_queue [$];   
-    bit [7:0] rx_queue [$];   
-
+    bit [7:0] rx_queue [$];
     // sticky overflow flags 
-    //for member 5 (3my moaz)
+    //for member 5
     bit tx_ovf_predicted = 1'b0;
     bit rx_ovf_predicted = 1'b0;
 
@@ -87,7 +86,6 @@ class spi_ref_model;
         pred_tx_byte = tx_byte;
         expected_rx  = loopback ? tx_byte : miso_pattern;
         pred_rx_byte = expected_rx;
-
         // model DUT's automatic RX-FIFO push on transfer completion 
         if (rx_full()) begin
             // --- MEMBER 5 INTEGRATION: RX Overflow (R14) ---
@@ -109,7 +107,6 @@ class spi_ref_model;
   task pop_and_check_rx(input bit [31:0] observed);
         bit [7:0] obs8 = observed[7:0];
         bit [7:0] exp8;
-
         if (rx_empty()) begin
             // --- MEMBER 5 INTEGRATION: Empty Read (R15) ---
             // R15: read while empty -> hardware returns 0x00, no error flag or OVF
@@ -121,7 +118,6 @@ class spi_ref_model;
                 $display("[REF_MODEL] pop_and_check_rx (empty): PASS 0x00 - R15 OK");
         end else begin
             exp8 = rx_queue.pop_front();
-            
             // Update shadow status on pop
             if (rx_empty()) begin
                 shadow_status[4] = 1'b1; // Set RX_EMPTY
@@ -164,7 +160,6 @@ class spi_ref_model;
 
     function void check_irq_pin(bit actual_irq_pin);
         bit predicted_irq;
-        
         predicted_irq = |(shadow_int_stat & shadow_int_en);
         
         if (actual_irq_pin !== predicted_irq) begin
@@ -172,9 +167,6 @@ class spi_ref_model;
             error_count++;
         end
     endfunction
-
-    
-
 
     function void predict_transfer_time(bit [1:0] width, bit [15:0] clk_div);
         int total_bits;
@@ -184,10 +176,9 @@ class spi_ref_model;
         else if (width == 2'b01) total_bits = 16;
         else total_bits = 32;
 
-        // Formula: SCLK period = 2 * (CLK_DIV + 1) PCLKs. 
+        // Formula: SCLK period = 2 * (CLK_DIV + 1) PCLKs.
         // Total time = SCLK period * total bits.
         expected_pclks = total_bits * 2 * (int'(clk_div) + 1);
-        
         $display("[SCOREBOARD] Prediction: Transfer should take exactly %0d PCLK cycles (Width=%0d bits, DIV=%0d)", 
                  expected_pclks, total_bits, clk_div);
     endfunction
@@ -196,7 +187,6 @@ class spi_ref_model;
         // Rule R3: When EN drops to 0, FIFOs and shifter are held in reset.
         // NOTE FOR MEMBER 4: When you add your queues, add tx_queue.delete() 
         // and rx_queue.delete() inside this task!
-        
         pred_tx_byte = 8'h0;
         pred_rx_byte = 8'h0;
         $display("[INFO] Scoreboard: Flush predicted (CTRL.EN dropped to 0).");
