@@ -120,16 +120,16 @@ run_bonus: compile
 	     +TESTNAME=$(BONUS_TEST) +UVM_TESTNAME=$(BONUS_TEST) +SEED=$(SEED)
 
 define REGRESS_ONE
-	@echo "=== Running $(1) for $(REGRESSION_SEEDS) seeds ==="
-	@for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
-	    $(MAKE) -s run TEST=$(1) SEED=$$s WAVES=0 \
-	      > build/log_$(1)_$$s.log 2>&1 ; \
-	done
+	echo "=== Running $(1) for $(REGRESSION_SEEDS) seeds ===" ; \
+	for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
+		"$(MAKE)" -s run TEST=$(1) SEED=$$s WAVES=0 \
+		  > build/log_$(1)_$$s.log 2>&1 ; \
+	done ;
 endef
 
 regress: compile
 	@mkdir -p build
-	$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
+	@$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
 	-vcover merge -out build/merged.ucdb $(wildcard cov_*.ucdb)
 
 cov:
