@@ -62,16 +62,23 @@ class spi_ref_model;
 // main pushing function for the tx_queue model.
     function void push_tx(input bit [7:0] data);
         if (tx_full()) begin
+            // --- MEMBER 5 INTEGRATION: TX Overflow (R13) ---
             tx_ovf_predicted = 1'b1;
-            $display("[REF_MODEL] push_tx: TX FIFO full – 0x%02h discarded (TX_OVF predicted)", data);
+            shadow_status[5]   = 1'b1; // TX_OVF in status register
+            shadow_int_stat[2] = 1'b1; // INT_STAT[TX_OVF] interrupt triggered
+            
+            $display("[REF_MODEL] push_tx: TX FIFO full - 0x%02h discarded (TX_OVF predicted)", data);
         end else begin
             tx_queue.push_back(data);
+            shadow_status[2] = 1'b0; // Clear TX_EMPTY
+            if (tx_queue.size() == FIFO_DEPTH)
+                shadow_status[1] = 1'b1; // Set TX_FULL
+                
             $display("[REF_MODEL] push_tx: enqueued 0x%02h  tx_size=%0d", data, tx_queue.size());
         end
     endfunction
 
-
-    task predict_single_byte(input bit [7:0] tx_byte,
+  task predict_single_byte(input bit [7:0] tx_byte,
                              input bit [7:0] miso_pattern,
                              input bit       loopback);
         bit [7:0] expected_rx;
@@ -81,35 +88,48 @@ class spi_ref_model;
         expected_rx  = loopback ? tx_byte : miso_pattern;
         pred_rx_byte = expected_rx;
 
-        //  model DUT's automatic RX-FIFO push on transfer completion 
+        // model DUT's automatic RX-FIFO push on transfer completion 
         if (rx_full()) begin
-            // R14: transfer completes while RX_FULL → word discarded, RX_OVF set
+            // --- MEMBER 5 INTEGRATION: RX Overflow (R14) ---
             rx_ovf_predicted = 1'b1;
+            shadow_status[6]   = 1'b1; // RX_OVF in status register (Assuming bit 6)
+            shadow_int_stat[3] = 1'b1; // INT_STAT[RX_OVF] interrupt triggered (Assuming bit 3)
+            
             $display("[REF_MODEL] predict_single_byte: RX FIFO full - 0x%02h discarded (RX_OVF predicted)", expected_rx);
         end else begin
             rx_queue.push_back(expected_rx);
+            shadow_status[4] = 1'b0; // Clear RX_EMPTY
+            if (rx_queue.size() == FIFO_DEPTH)
+                shadow_status[3] = 1'b1; // Set RX_FULL
+                
             $display("[REF_MODEL] predict_single_byte: RX enqueued 0x%02h  rx_size=%0d", expected_rx, rx_queue.size());
         end
     endtask
 
-    task pop_and_check_rx(input bit [31:0] observed);
+  task pop_and_check_rx(input bit [31:0] observed);
         bit [7:0] obs8 = observed[7:0];
         bit [7:0] exp8;
 
         if (rx_empty()) begin
-            // R15: read while empty → hardware returns 0x00, no error flag
+            // --- MEMBER 5 INTEGRATION: Empty Read (R15) ---
+            // R15: read while empty -> hardware returns 0x00, no error flag or OVF
             exp8 = 8'h00;
             if (obs8 !== exp8) begin
-                $display("[SCOREBOARD_ERROR] pop_and_check_rx (empty): expected=0x%02h observed=0x%02h",
-                         exp8, obs8);
+                $display("[SCOREBOARD_ERROR] pop_and_check_rx (empty): expected=0x%02h observed=0x%02h", exp8, obs8);
                 error_count++;
             end else
-                $display("[REF_MODEL] pop_and_check_rx (empty): PASS 0x00 – R15 OK");
+                $display("[REF_MODEL] pop_and_check_rx (empty): PASS 0x00 - R15 OK");
         end else begin
             exp8 = rx_queue.pop_front();
+            
+            // Update shadow status on pop
+            if (rx_empty()) begin
+                shadow_status[4] = 1'b1; // Set RX_EMPTY
+                shadow_status[3] = 1'b0; // Clear RX_FULL
+            end
+            
             if (obs8 !== exp8) begin
-                $display("[SCOREBOARD_ERROR] pop_and_check_rx: expected=0x%02h observed=0x%02h",
-                         exp8, obs8);
+                $display("[SCOREBOARD_ERROR] pop_and_check_rx: expected=0x%02h observed=0x%02h", exp8, obs8);
                 error_count++;
             end else
                 $display("[REF_MODEL] pop_and_check_rx: PASS 0x%02h  rx_size=%0d", obs8, rx_queue.size());
