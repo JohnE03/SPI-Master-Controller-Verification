@@ -28,6 +28,7 @@
 `include "tests/loopback_test.sv"
 `include "tests/flush_test.sv"
 `include "tests/error_injection_test.sv"
+`include "tests/reg_access_test.sv"
 
 module tb_top;
     int assertion_error_count = 0;
@@ -102,6 +103,7 @@ module tb_top;
             
 
             "error_injection_test"    : error_injection_test::run(u_ref, u_cov);
+            "reg_access_test" : reg_access_test::run(u_ref, u_cov);
 
             default : begin
                 $display("[TEST_FAILED] %s errors=1  (unknown test name)", testname);

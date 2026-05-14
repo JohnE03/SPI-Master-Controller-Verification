@@ -218,6 +218,16 @@ else begin
     tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
 end
 
+// R23: The APB interface must have 0 wait states. 
+// This means PREADY must be strictly 1 whenever PSEL and PENABLE are high.
+a_pready_no_stall: assert property (
+    @(posedge PCLK) disable iff (!PRESETn)
+        (tb_top.apb.psel && tb_top.apb.penable) |-> (tb_top.apb.pready == 1'b1)
+) else begin 
+    $error("[ASSERTION_ERROR] a_pready_no_stall: APB PREADY stalled the CPU!");
+    tb_top.assertion_error_count = tb_top.assertion_error_count + 1;
+end
+
 endmodule
 
 `endif // SPI_SVA_SV

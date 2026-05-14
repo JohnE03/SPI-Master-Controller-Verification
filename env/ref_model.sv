@@ -22,6 +22,17 @@ class spi_ref_model;
     // are modelled; students should fill in the rest.
     bit [7:0]  pred_rx_byte;
     bit [7:0]  pred_tx_byte;
+
+    // Tracking what the CPU wrote to each of the 9 APB registers
+    bit [31:0] shadow_ctrl     = 32'h0;
+    bit [31:0] shadow_status   = 32'h1; // TX_EMPTY defaults to 1
+    bit [31:0] shadow_tx_data  = 32'h0;
+    bit [31:0] shadow_rx_data  = 32'h0;
+    bit [31:0] shadow_clk_div  = 32'h0;
+    bit [31:0] shadow_ss_ctrl  = 32'h0;
+    bit [31:0] shadow_int_en_m = 32'h0; // Renamed to avoid conflict
+    bit [31:0] shadow_int_stat = 32'h0;
+    bit [31:0] shadow_delay    = 32'h0;
     
     bit [4:0] shadow_int_stat = 5'b0;
     bit [4:0] shadow_int_en   = 5'b0;
