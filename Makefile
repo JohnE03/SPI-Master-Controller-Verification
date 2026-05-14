@@ -13,10 +13,9 @@ WAVES     ?= 0
 
 # Resolve the project root from this file's location.
 # harness/examples/sv_only/Makefile  -> ../../..
-PROJ_ROOT  ?= ../../..
+PROJ_ROOT  ?= .
 HARNESS    ?= $(PROJ_ROOT)/harness
 STUDENT_TB ?= .
-
 # DUT sources (three-file golden RTL). The grader overrides DUT_SRCS to
 # point at faulty_rtl/*_buggy.sv when it injects a bug.
 DUT_SRCS   ?= \
@@ -60,7 +59,6 @@ ASSERT_SRCS?= \
 #   3) add a dispatcher arm in tb_top's case() statement
 #   4) add the test name to REGRESSION_TESTS below
 # Do NOT add it to a TEST_SRCS variable here.
-
 # tb_top.sv uses `\`include "env/ref_model.sv"` (etc.), so $(STUDENT_TB)
 # itself MUST be on the +incdir+ path. Keep the leaf dirs as well so any
 # helper file that says `\`include "ref_model.sv"` (no leading dir) still
@@ -104,8 +102,6 @@ compile:
 	   $(HARNESS)/spi_if.sv \
 	   $(EFF_DUT_SRCS) \
 	   $(HARNESS)/dut_wrapper.sv \
-	   $(ENV_SRCS) \
-	   $(SEQ_SRCS) \
 	   $(ASSERT_SRCS) \
 	   $(TB_SRCS)
 
