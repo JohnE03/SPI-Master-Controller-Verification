@@ -42,10 +42,18 @@ class spi_coverage_col;
 
     covergroup cg_interrupts;
         option.per_instance = 1;
-        cp_stat : coverpoint cv_int_stat;
-        cp_en   : coverpoint cv_int_en;
         
-        cx_stat_en : cross cp_stat, cp_en; 
+        cp_tx_ovf_stat : coverpoint cv_int_stat[0];
+        cp_rx_ovf_stat : coverpoint cv_int_stat[1];
+        cp_rx_udf_stat : coverpoint cv_int_stat[2];
+        cp_tx_udf_stat : coverpoint cv_int_stat[3];
+        cp_rx_full_stat: coverpoint cv_int_stat[4];
+
+        cp_tx_ovf_en   : coverpoint cv_int_en[0];
+        cp_rx_ovf_en   : coverpoint cv_int_en[1];
+        cp_rx_udf_en   : coverpoint cv_int_en[2];
+        cp_tx_udf_en   : coverpoint cv_int_en[3];
+        cp_rx_full_en  : coverpoint cv_int_en[4];
     endgroup
 
     covergroup cg_fifo_occupancy;

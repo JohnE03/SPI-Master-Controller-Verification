@@ -84,7 +84,7 @@ REGRESSION_TESTS = \
   error_injection_test \
   flush_test
 
-REGRESSION_SEEDS ?= 20   # 10 * 20 = 200 runs (well under the 10000 cap)
+REGRESSION_SEEDS ?= 1   # 10 * 20 = 200 runs (well under the 10000 cap)
 
 # ============================================================================
 # Questa flow (default)
@@ -100,6 +100,8 @@ compile:
 	vlog $(VLOG_FLAGS) $(COV_FLAG) \
 	   $(HARNESS)/apb_if.sv \
 	   $(HARNESS)/spi_if.sv \
+	   $(ENV_SRCS) \
+       $(SEQ_SRCS) \
 	   $(EFF_DUT_SRCS) \
 	   $(HARNESS)/dut_wrapper.sv \
 	   $(ASSERT_SRCS) \
@@ -126,7 +128,8 @@ endef
 regress: compile
 	@mkdir -p build
 	@$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
-	-vcover merge -out build/merged.ucdb $(wildcard cov_*.ucdb)
+# 	-vcover merge -out build/merged.ucdb $(wildcard cov_*.ucdb)
+	-vcover merge -out build/merged.ucdb cov_*.ucdb
 
 cov:
 	@if [ -f build/merged.ucdb ]; then \

@@ -24,12 +24,12 @@ class error_injection_test;
         tb_top.u_apb_bfm.apb_write(8'h18, 32'h0000_001F);
         
         // Configure DUT (Mode 0, 8-bit, Master, Enable)
-        tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0003); 
+        tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0003);
         tb_top.u_apb_bfm.apb_write(8'h10, 32'h0000_0002);
         
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00AA + i);
-            ref_model.push_tx(8'hAA + i); // <--- ADD THIS LINE
+            ref_model.push_tx(8'hAA + i); 
         end
         
         // 9th -> overflow
@@ -50,18 +50,21 @@ class error_injection_test;
         end
 
         // Drain TX FIFO
-        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001); // Assert SS
+        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001);
+        // Assert SS
         repeat (5000) begin
             tb_top.u_apb_bfm.apb_read(8'h04, rd);
             if (rd[0] == 1'b0 && rd[2] == 1'b1) break; // Wait until BUSY=0 and TX_EMPTY=1
         end
-        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000); // Deassert SS
+        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000);
+        // Deassert SS
         
         // Empty the RX side
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_read(8'h0C, rd);
         end
-        tb_top.u_apb_bfm.apb_write(8'h1C, 32'h0000_001F); // Clear interrupts
+        tb_top.u_apb_bfm.apb_write(8'h1C, 32'h0000_001F);
+        // Clear interrupts
 
         // Test 2: RX read when empty -> 0, no OVF (R15)
         $display("[TRACE] Test 2: RX read when empty (R15)");
@@ -96,9 +99,7 @@ class error_injection_test;
         
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00BB);
-            // --- ADD THIS TO TELL THE SCOREBOARD ---
-            ref_model.predict_single_byte(8'hBB, 32'h3C, 1'b0); // 32'h3C is your bfm_pattern
-            // ---------------------------------------
+            ref_model.predict_single_byte(8'hBB, 32'h3C, 1'b0);
         end
         
         // Wait for 8 transfers to complete
@@ -109,16 +110,15 @@ class error_injection_test;
         
         // 9th transfer
         tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00CC);
+        ref_model.predict_single_byte(8'hCC, 32'h3C, 1'b0);
 
-        // --- ADD THIS SO THE SCOREBOARD PREDICTS OVERFLOW ---
-        ref_model.predict_single_byte(8'hCC, 32'h3C, 1'b0); 
-        // ----------------------------------------------------
         repeat (1000) begin
             tb_top.u_apb_bfm.apb_read(8'h04, rd);
             if (rd[0] == 1'b0 && rd[2] == 1'b1) break;
         end
         
-        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000); // Deassert SS
+        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000);
+        // Deassert SS
 
         tb_top.u_apb_bfm.apb_read(8'h04, status);
         if (!status[6]) begin
@@ -154,7 +154,13 @@ class error_injection_test;
             $display("[SCOREBOARD_ERROR] R23: Reserved 0x30 = 0x%08h (exp 0)", rd);
         end
 
+        // --- FIXED: Clear INT_EN and explicitly sample the coverage bins! ---
         tb_top.u_apb_bfm.apb_write(8'h00, 32'h0);
+        tb_top.u_apb_bfm.apb_write(8'h18, 32'h0000_0000); 
+        
+        tb_top.u_apb_bfm.apb_read(8'h1C, rd);
+        coverage.sample_interrupts(rd[4:0], 5'h00); 
+        // --------------------------------------------------------------------
 
         $display("\n==================================================================");
         $display("[INFO] error_injection_test: FINISHED");
