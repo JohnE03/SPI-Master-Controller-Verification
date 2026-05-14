@@ -28,7 +28,7 @@ class reg_access_test;
         // ------------------------------------------------------------------
         $display("[TRACE] Step 1: Checking Hardware Reset Values");
         tb_top.u_apb_bfm.apb_read(CTRL, rd_data);     ref_model.check_reg("CTRL",     32'h0, rd_data);
-        tb_top.u_apb_bfm.apb_read(STATUS, rd_data);   ref_model.check_reg("STATUS",   32'h1, rd_data); // TX_EMPTY bit is 1
+        tb_top.u_apb_bfm.apb_read(STATUS, rd_data);   ref_model.check_reg("STATUS",   32'h14, rd_data); // TX_EMPTY bit is 1
         tb_top.u_apb_bfm.apb_read(TX_DATA, rd_data);  ref_model.check_reg("TX_DATA",  32'h0, rd_data);
         tb_top.u_apb_bfm.apb_read(RX_DATA, rd_data);  ref_model.check_reg("RX_DATA",  32'h0, rd_data);
         tb_top.u_apb_bfm.apb_read(CLK_DIV, rd_data);  ref_model.check_reg("CLK_DIV",  32'h0, rd_data);

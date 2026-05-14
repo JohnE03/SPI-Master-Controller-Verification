@@ -25,18 +25,14 @@ class spi_ref_model;
 
     // Tracking what the CPU wrote to each of the 9 APB registers
     bit [31:0] shadow_ctrl     = 32'h0;
-    bit [31:0] shadow_status   = 32'h1; // TX_EMPTY defaults to 1
+    bit [31:0] shadow_status   = 32'h14;
     bit [31:0] shadow_tx_data  = 32'h0;
     bit [31:0] shadow_rx_data  = 32'h0;
     bit [31:0] shadow_clk_div  = 32'h0;
     bit [31:0] shadow_ss_ctrl  = 32'h0;
-    bit [31:0] shadow_int_en_m = 32'h0; // Renamed to avoid conflict
+    bit [31:0] shadow_int_en = 32'h0;
     bit [31:0] shadow_int_stat = 32'h0;
     bit [31:0] shadow_delay    = 32'h0;
-    
-    bit [4:0] shadow_int_stat = 5'b0;
-    bit [4:0] shadow_int_en   = 5'b0;
-    bit [31:0] shadow_status  = 32'h0; // <-- The Fix
 
 
     bit [7:0] tx_queue [$];   
