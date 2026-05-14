@@ -31,6 +31,7 @@ class error_injection_test;
         
         for (int i = 0; i < 8; i++) begin
             tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00AA + i);
+            ref_model.push_tx(8'hAA + i); // <--- ADD THIS LINE
         end
         
         // 9th -> overflow
