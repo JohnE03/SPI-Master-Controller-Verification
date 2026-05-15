@@ -72,7 +72,7 @@ ifeq ($(SIMULATOR),questa)
 # Keep +acc off by default for speed.
 # Add it only if you really need deep waveform/debug access.
 VLOG_FLAGS  = -sv -timescale=1ns/1ps +define+SIM $(INC_DIRS)
-COV_FLAG    = +cover=bcestf
+COV_FLAG    = +cover=sb
 
 compile:
 	@mkdir -p build
@@ -125,6 +125,15 @@ regress: compile
 	@$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
 	-vcover merge -out build/merged.ucdb cov_*.ucdb
 
+regress_fast: compile
+	@mkdir -p build
+	@rm -f cov_*.ucdb build/merged.ucdb
+	@for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
+		"$(MAKE)" -s run_nocompile TEST=all_tests SEED=$$s WAVES=0 \
+		  > build/log_all_tests_$$s.log 2>&1 ; \
+	done ;
+	-vcover merge -out build/merged.ucdb cov_*.ucdb
+
 cov:
 	@if [ -f build/merged.ucdb ]; then \
 	    vcover report -details build/merged.ucdb > coverage_report.txt ; \
@@ -138,4 +147,4 @@ clean:
 
 endif
 
-.PHONY: compile run run_nocompile run_bonus regress cov clean
+.PHONY: compile run run_nocompile run_bonus regress regress_fast cov clean
