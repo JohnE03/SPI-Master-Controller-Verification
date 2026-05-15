@@ -1,9 +1,5 @@
 # =============================================================================
 # Makefile - SV-only starter scaffold for the SPI Master Verification Project
-# -----------------------------------------------------------------------------
-# This is a concrete Makefile derived from harness/Makefile.template. It is
-# pre-wired for the SV-only scaffold that lives next to it (no UVM) and can
-# be consumed directly by the grader without modification.
 # =============================================================================
 
 SIMULATOR ?= questa
@@ -16,18 +12,20 @@ WAVES     ?= 0
 PROJ_ROOT  ?= ../../..
 HARNESS    ?= $(PROJ_ROOT)/harness
 STUDENT_TB ?= .
-# DUT sources (three-file golden RTL). The grader overrides DUT_SRCS to
-# point at faulty_rtl/*_buggy.sv when it injects a bug.
+
+# DUT sources. Grader overrides DUT_SRCS.
 DUT_SRCS   ?= \
   $(PROJ_ROOT)/golden_rtl/spi_core.sv \
   $(PROJ_ROOT)/golden_rtl/apb_regfile.sv \
   $(PROJ_ROOT)/golden_rtl/spi_master.sv
+
 DUT_SRC    ?=
 EFF_DUT_SRCS = $(if $(strip $(DUT_SRC)),$(DUT_SRC),$(DUT_SRCS))
 
 BONUS_TEST ?= ral_hw_reset_test
 
 # ---- student source lists ---------------------------------------------------
+
 TB_SRCS    ?= \
   $(STUDENT_TB)/tb/apb_master_bfm.sv \
   $(STUDENT_TB)/tb/spi_slave_bfm.sv \
@@ -43,34 +41,12 @@ SEQ_SRCS   ?= \
 ASSERT_SRCS?= \
   $(STUDENT_TB)/assertions/spi_sva.sv
 
-# NOTE: test files (tests/*.sv) are NOT listed here on purpose.
-#
-# The plain-SV scaffold ships test classes that take `ref spi_ref_model` /
-# `ref spi_coverage_col` arguments. Those classes live in env/ref_model.sv
-# and env/coverage.sv (file scope). QuestaSim treats every file in a vlog
-# call as a SEPARATE compilation unit, so file-scope class typenames are
-# NOT visible to a separately-compiled tests/foo.sv. The test files MUST
-# therefore be brought in via `\`include` from inside the tb_top module
-# (where the class names are visible), not as standalone vlog inputs.
-# tb/tb_top.sv already \`include`s tests/sanity_test.sv and
-# tests/ral_hw_reset_test.sv. If you add a new test class:
-#   1) drop it under tests/<your_test>.sv
-#   2) add `\`include "tests/<your_test>.sv"` near the top of tb/tb_top.sv
-#   3) add a dispatcher arm in tb_top's case() statement
-#   4) add the test name to REGRESSION_TESTS below
-# Do NOT add it to a TEST_SRCS variable here.
-# tb_top.sv uses `\`include "env/ref_model.sv"` (etc.), so $(STUDENT_TB)
-# itself MUST be on the +incdir+ path. Keep the leaf dirs as well so any
-# helper file that says `\`include "ref_model.sv"` (no leading dir) still
-# resolves.
 INC_DIRS   ?= +incdir+$(HARNESS) +incdir+$(STUDENT_TB) \
               +incdir+$(STUDENT_TB)/env +incdir+$(STUDENT_TB)/tb \
               +incdir+$(STUDENT_TB)/sequences +incdir+$(STUDENT_TB)/tests
 
 # ---- regression list --------------------------------------------------------
-# NOTE: The scaffold only provides sanity_test fleshed out. Students MUST
-# add the other nine required tests before submitting. The grader checks
-# this list matches Section 3 of the grading contract.
+
 REGRESSION_TESTS = \
   sanity_test \
   reg_access_test \
@@ -85,14 +61,17 @@ REGRESSION_TESTS = \
   flush_test \
   randomized_sanity_test
 
-REGRESSION_SEEDS ?= 5   # 12 * 20 = 240 runs (well under the 10000 cap)
+REGRESSION_SEEDS ?= 5
 
 # ============================================================================
-# Questa flow (default)
+# Questa flow
 # ============================================================================
+
 ifeq ($(SIMULATOR),questa)
 
-VLOG_FLAGS  = -sv -timescale=1ns/1ps +acc=rn +define+SIM $(INC_DIRS)
+# Keep +acc off by default for speed.
+# Add it only if you really need deep waveform/debug access.
+VLOG_FLAGS  = -sv -timescale=1ns/1ps +define+SIM $(INC_DIRS)
 COV_FLAG    = +cover=bcestf
 
 compile:
@@ -102,14 +81,25 @@ compile:
 	   $(HARNESS)/apb_if.sv \
 	   $(HARNESS)/spi_if.sv \
 	   $(ENV_SRCS) \
-       $(SEQ_SRCS) \
+	   $(SEQ_SRCS) \
 	   $(EFF_DUT_SRCS) \
 	   $(HARNESS)/dut_wrapper.sv \
 	   $(ASSERT_SRCS) \
 	   $(TB_SRCS)
 
+# Normal single-test run.
+# This keeps the required interface working:
+# make run TEST=<name> SEED=<n>
 run: compile
-	vsim -c -voptargs="+acc" -coverage work.tb_top \
+	vsim -c -coverage work.tb_top \
+	     -do "coverage save -onexit cov_$(TEST)_$(SEED).ucdb; run -all; quit -f" \
+	     +TESTNAME=$(TEST) +UVM_TESTNAME=$(TEST) +SEED=$(SEED) \
+	     $(if $(filter 1,$(WAVES)), -wlf waves_$(TEST)_$(SEED).wlf,)
+
+# Regression-only run.
+# Does NOT call compile, so make regress does not recompile for every seed.
+run_nocompile:
+	vsim -c -coverage work.tb_top \
 	     -do "coverage save -onexit cov_$(TEST)_$(SEED).ucdb; run -all; quit -f" \
 	     +TESTNAME=$(TEST) +UVM_TESTNAME=$(TEST) +SEED=$(SEED) \
 	     $(if $(filter 1,$(WAVES)), -wlf waves_$(TEST)_$(SEED).wlf,)
@@ -121,15 +111,18 @@ run_bonus: compile
 define REGRESS_ONE
 	echo "=== Running $(1) for $(REGRESSION_SEEDS) seeds ===" ; \
 	for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
-		"$(MAKE)" -s run TEST=$(1) SEED=$$s WAVES=0 \
+		"$(MAKE)" -s run_nocompile TEST=$(1) SEED=$$s WAVES=0 \
 		  > build/log_$(1)_$$s.log 2>&1 ; \
 	done ;
 endef
 
+# Grader calls make compile first, then make regress.
+# This target still depends on compile, but it compiles only once,
+# not once per test/seed.
 regress: compile
 	@mkdir -p build
+	@rm -f cov_*.ucdb build/merged.ucdb
 	@$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
-# 	-vcover merge -out build/merged.ucdb $(wildcard cov_*.ucdb)
 	-vcover merge -out build/merged.ucdb cov_*.ucdb
 
 cov:
@@ -145,4 +138,4 @@ clean:
 
 endif
 
-.PHONY: compile run run_bonus regress cov clean
+.PHONY: compile run run_nocompile run_bonus regress cov clean
