@@ -122,12 +122,7 @@ endef
 regress: compile
 	@mkdir -p build
 	@rm -f cov_*.ucdb build/merged.ucdb
-	@$(foreach t,$(REGRESSION_TESTS),$(call REGRESS_ONE,$(t)))
-	-vcover merge -out build/merged.ucdb cov_*.ucdb
-
-regress_fast: compile
-	@mkdir -p build
-	@rm -f cov_*.ucdb build/merged.ucdb
+	@echo "=== Running bundled all_tests for $(REGRESSION_SEEDS) seeds ==="
 	@for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
 		"$(MAKE)" -s run_nocompile TEST=all_tests SEED=$$s WAVES=0 \
 		  > build/log_all_tests_$$s.log 2>&1 ; \
