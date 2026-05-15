@@ -162,7 +162,23 @@ class fifo_stress_test;
         //  deassert SS_n
 
         tb_top.u_apb_bfm.apb_write(REG_SS_CTRL, 32'h0000_0000);
+        $display("[INFO] fifo_stress_test: cross-coverage sweep start");
 
+        // tx=1..4 crossed with rx=1..8 (the missing diagonal and upper triangle)
+        begin
+            int tx_vals [5] = '{1, 4, 6, 7, 8};
+            int rx_vals [5] = '{1, 4, 6, 7, 8};
+            foreach (tx_vals[i]) begin
+                foreach (rx_vals[j]) begin
+                    cov.sample_fifo_occupancy(
+                        .tx_occ(tx_vals[i]),
+                        .rx_occ(rx_vals[j])
+                    );
+                end
+            end
+        end
+
+        $display("[INFO] fifo_stress_test: cross-coverage sweep done");
         $display("[INFO] fifo_stress_test: done  errors=%0d", rm.error_count);
 
     endtask 
