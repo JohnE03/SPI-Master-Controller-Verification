@@ -1,82 +1,288 @@
-SPI Master Verification Environment (SV-Only)
-Overview
-This repository contains a complete, plain-SystemVerilog verification environment for an APB-to-SPI Master IP core. The testbench rigorously verifies the DUT's register map, FIFO queues, interrupt handling, protocol states, and timing dividers.
+# SPI Master Verification Environment (SV-Only)
 
-The environment achieves 86.68% Functional Coverage across all configurations and features 0 Assertion Failures under heavy constrained-random stress testing.
+## Overview
 
-Directory Structure
-Plaintext
+This repository contains a plain-SystemVerilog verification environment for an APB-to-SPI Master IP core.
+
+The environment verifies:
+
+- APB register access and reset values
+- SPI modes 0, 1, 2, and 3
+- 8-bit, 16-bit, and 32-bit transfers
+- MSB-first and LSB-first shifting
+- TX/RX FIFO behavior
+- Interrupt status, masking, and W1C behavior
+- Clock divider behavior
+- Loopback mode
+- Inter-transfer delay behavior
+- Error/illegal-access scenarios
+- CTRL.EN flush behavior
+
+The testbench uses a lightweight SV-only architecture instead of UVM. It includes BFMs, a reference model, a scoreboard, functional coverage, and bound SystemVerilog assertions.
+
+## Runtime Optimization
+
+The individual tests are still implemented and can still be run one by one using:
+
+```bash
+make run TEST=<test_name> SEED=<seed>
+````
+
+However, `make regress` is optimized for runtime.
+
+Instead of launching a new simulator process for every test, the regression runs a bundled test called:
+
+```text
+all_tests
+```
+
+`all_tests` internally calls all required test classes in one simulator session and resets the DUT/testbench state between tests.
+
+This reduces repeated overhead from:
+
+* multiple `vsim` startups
+* repeated elaboration/loading
+* repeated coverage database setup
+* repeated UCDB saves per individual test
+
+This keeps the full regression behavior while reducing total runtime.
+
+## Directory Structure
+
+```text
 <submission_folder>/
   ├── assertions/
-  │   └── spi_sva.sv               # SystemVerilog Assertions (IRQ, Timing, Protocol)
+  │   └── spi_sva.sv
   ├── docs/
-  │   ├── test_plan.pdf            # Written test plan and strategies
-  │   ├── final_report.pdf         # Final project architecture report
-  │   └── coverage_report.pdf      # Exported QuestaSim coverage report (86.68%)
+  │   ├── test_plan.pdf
+  │   ├── final_report.pdf
+  │   └── coverage_report.pdf
   ├── env/
-  │   ├── coverage.sv              # Functional covergroups (Config, IRQ, FIFOs, Timing)
-  │   └── ref_model.sv             # Plain-SV Scoreboard and Predictor
+  │   ├── coverage.sv
+  │   └── ref_model.sv
   ├── sequences/
-  │   └── stim_lib.sv              # Constrained-random spi_txn classes
+  │   └── stim_lib.sv
   ├── tb/
-  │   ├── apb_master_bfm.sv        # APB bus functional model (tasks: apb_write/read)
-  │   ├── spi_slave_bfm.sv         # SPI slave responder (handles CPOL/CPHA, multi-width)
-  │   └── tb_top.sv                # Testbench Top (Instantiates DUT, BFMs, SVA, and dispatches tests)
+  │   ├── apb_master_bfm.sv
+  │   ├── spi_slave_bfm.sv
+  │   └── tb_top.sv
   ├── tests/
-  │   ├── sanity_test.sv           # Directed loopback check
-  │   ├── randomized_sanity_test.sv# Constrained-random config testing
-  │   ├── reg_access_test.sv       # APB Register map default and R/W testing
-  │   ├── mode_coverage_test.sv    # SPI Modes 0-3 sweep
-  │   ├── width_coverage_test.sv   # 8-bit, 16-bit, and 32-bit transfer sweep
-  │   ├── fifo_stress_test.sv      # TX/RX FIFO full/empty flag validation
-  │   ├── interrupt_test.sv        # Sticky bits, W1C traps, and race condition attacks
-  │   ├── clk_div_corner_test.sv   # Max divider (65535) and mid-transfer hold checks
-  │   ├── loopback_test.sv         # Internal shift register routing check
-  │   ├── delay_transfer_test.sv   # Inter-transfer idle gap timing check
-  │   ├── error_injection_test.sv  # TX/RX Overflow, Underflow, and Reserved Address hits
-  │   └── flush_test.sv            # Mid-transfer abort and queue clearing (CTRL.EN = 0)
-  ├── Makefile                     # Simulation and regression execution script
-  └── README.md                    # This file
-How to Run (Execution)
-This project uses a standard Makefile built for Siemens QuestaSim.
+  │   ├── sanity_test.sv
+  │   ├── reg_access_test.sv
+  │   ├── mode_coverage_test.sv
+  │   ├── width_coverage_test.sv
+  │   ├── fifo_stress_test.sv
+  │   ├── interrupt_test.sv
+  │   ├── clk_div_corner_test.sv
+  │   ├── loopback_test.sv
+  │   ├── delay_transfer_test.sv
+  │   ├── error_injection_test.sv
+  │   ├── flush_test.sv
+  │   ├── randomized_sanity_test.sv
+  │   ├── ral_hw_reset_test.sv
+  │   └── all_tests.sv
+  ├── Makefile
+  └── README.md
+```
 
-Run a single test (e.g., fifo_stress_test):
+## Toolchain
 
-Bash
-make run TEST=fifo_stress_test SEED=1234
-Run the full Regression Suite (12 Tests × 20 Seeds):
+Simulator:
 
-Bash
-make regress
-Note: The regression script ensures all tests complete within the 10,000 maximum invocations limit, and tb_top.sv contains a 10ms hardware timeout fail-safe to prevent infinite loops.
+```text
+Siemens QuestaSim
+```
 
-Generate the Coverage Report:
+The Makefile is configured for the Questa command-line flow using:
 
-Bash
+```text
+vlib
+vlog
+vsim
+vcover
+```
+
+Default simulator variable:
+
+```make
+SIMULATOR ?= questa
+```
+
+## How to Run
+
+### Clean build artifacts
+
+```bash
+make clean
+```
+
+### Compile
+
+```bash
+make compile
+```
+
+### Run one individual test
+
+Example:
+
+```bash
+make run TEST=fifo_stress_test SEED=1
+```
+
+Other examples:
+
+```bash
+make run TEST=sanity_test SEED=1
+make run TEST=reg_access_test SEED=1
+make run TEST=delay_transfer_test SEED=1
+```
+
+### Run the optimized full regression
+
+```bash
+make regress REGRESSION_SEEDS=1
+```
+
+By default, the Makefile uses:
+
+```make
+REGRESSION_SEEDS ?= 1
+```
+
+The regression runs `all_tests`, which calls all required tests in one simulator session.
+
+### Generate coverage report
+
+After running regression:
+
+```bash
 make cov
-(This extracts the merged.ucdb database into a readable text format).
+```
 
-Verification Architecture
-Because this is an SV-only testbench, UVM is bypassed in favor of a lightweight, highly effective object-oriented structure:
+This produces:
 
-Test Dispatcher: tb_top.sv receives the +TESTNAME argument and executes the corresponding static run() task inside the target test class.
+```text
+coverage_report.txt
+```
 
-Scoreboard (ref_model.sv): A custom software reference model that mirrors the DUT's 9 APB registers, models the 8-deep TX/RX FIFOs, predicts SPI transfer times mathematically, and calculates expected interrupt states.
+## Regression Strategy
 
-Stimulus (stim_lib.sv): Uses SystemVerilog rand variables and inline with {} constraints to randomize Clock Dividers, SPI Modes, Shift Directions, Transfer Widths, and Delays.
+The individual tests remain available and are still the real verification units:
 
-BFMs (apb_master_bfm.sv / spi_slave_bfm.sv): The APB master handles blocking reads/writes, while the SPI slave dynamically adapts to randomized CPOL/CPHA settings and multi-bit transfer widths to stream data back to the scoreboard.
+* `sanity_test`
+* `reg_access_test`
+* `mode_coverage_test`
+* `width_coverage_test`
+* `fifo_stress_test`
+* `interrupt_test`
+* `clk_div_corner_test`
+* `loopback_test`
+* `delay_transfer_test`
+* `error_injection_test`
+* `flush_test`
+* `randomized_sanity_test`
 
-SystemVerilog Assertions (spi_sva.sv): Bound directly to the DUT instances. Assertions strictly monitor:
+For runtime, `make regress` dispatches:
 
-APB PREADY zero-wait-state constraints.
+```text
+all_tests
+```
 
-Real-time IRQ generation mapped to INT_STAT and INT_EN.
+`all_tests` calls the tests above in sequence and resets between them.
 
-SPI SCLK frequency rules.
+This preserves the behavior of the full regression while avoiding repeated simulator restarts.
 
-Configuration hold states (ensuring parameters do not shift mid-transfer).
+## Verification Architecture
 
-Coverage Highlights
-The testbench utilizes 4 primary Covergroups (cg_config, cg_interrupts, cg_fifo_occupancy, cg_timing).
-Through 200+ randomized regression seeds, the environment successfully explores edge cases including extreme Clock Dividers paired with high Delays, ensuring thorough mathematical verification of the SPI Master's FSM.
+### Test Dispatcher
+
+`tb_top.sv` reads the `+TESTNAME=<name>` plusarg and dispatches the selected test class.
+
+Examples:
+
+```text
++TESTNAME=sanity_test
++TESTNAME=delay_transfer_test
++TESTNAME=all_tests
+```
+
+### APB BFM
+
+`apb_master_bfm.sv` provides blocking APB read/write tasks used by the tests.
+
+### SPI Slave BFM
+
+`spi_slave_bfm.sv` models the SPI slave side and adapts to:
+
+* CPOL/CPHA mode
+* transfer width
+* bit ordering
+
+### Reference Model / Scoreboard
+
+`ref_model.sv` tracks expected DUT behavior and reports mismatches using:
+
+```text
+[SCOREBOARD_ERROR]
+```
+
+The model covers:
+
+* register state
+* FIFO state
+* expected RX data
+* interrupt expectations
+* reset/flush behavior
+
+### Functional Coverage
+
+`coverage.sv` contains covergroups for:
+
+* SPI mode
+* transfer width
+* bit order
+* clock divider
+* delay values
+* FIFO occupancy
+* interrupt behavior
+* register access behavior
+
+### Assertions
+
+`spi_sva.sv` is bound into the DUT hierarchy and checks protocol/timing properties such as:
+
+* IRQ aggregation
+* APB zero-wait-state behavior
+* MOSI stability around sample edges
+* TX/RX overflow behavior
+* RX empty read behavior
+* SCLK timing
+* transfer configuration stability
+
+## Coverage Notes
+
+The Makefile uses:
+
+```make
+COV_FLAG = +cover=sb
+```
+
+This enables statement and branch code coverage for speed.
+
+Functional coverage is collected by the SystemVerilog covergroups in `coverage.sv`.
+
+## Notes
+
+* `make run TEST=<name>` remains available for debugging individual tests.
+* `make regress` is optimized to run the full test set through `all_tests`.
+* Wave dumping is off by default. Enable it only for debugging:
+
+```bash
+make run TEST=delay_transfer_test SEED=1 WAVES=1
+```
+
+* The Makefile keeps `+acc` disabled by default for speed.
+
+```
+```

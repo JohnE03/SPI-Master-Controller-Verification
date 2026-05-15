@@ -61,7 +61,7 @@ REGRESSION_TESTS = \
   flush_test \
   randomized_sanity_test
 
-REGRESSION_SEEDS ?= 5
+REGRESSION_SEEDS ?= 6
 
 # ============================================================================
 # Questa flow
@@ -116,9 +116,9 @@ define REGRESS_ONE
 	done ;
 endef
 
-# Grader calls make compile first, then make regress.
-# This target still depends on compile, but it compiles only once,
-# not once per test/seed.
+# Fast official regression:
+# Runs one simulator session per seed by dispatching all_tests.
+# all_tests internally calls every required test and resets between them.
 regress: compile
 	@mkdir -p build
 	@rm -f cov_*.ucdb build/merged.ucdb
