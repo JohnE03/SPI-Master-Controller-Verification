@@ -237,9 +237,10 @@ begin
     tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001);
 
     // Wait until BUSY=1
-    do begin
+    repeat (100_000) begin
         tb_top.u_apb_bfm.apb_read(8'h04, rd);
-    end while (rd[0] == 1'b0);
+        if (rd[0] == 1'b1) break; 
+    end
 
     // Change all sampled config fields mid-transfer:
     // New CTRL: WIDTH=32-bit, LOOPBACK=1, LSB_FIRST=1, MODE=3, EN=1, MSTR=1

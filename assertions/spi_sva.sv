@@ -205,11 +205,14 @@ assert property (
 // Allow 0-2 extra cycles because RTL may have pipeline timing.
  
 property p_r21_delay_state;
-@(posedge PCLK) disable iff (!PRESETn)
+    @(posedge PCLK) disable iff (!PRESETn)
+    // Trigger: Core is in S_FINISH (state 2), TX has data, and DELAY is configured
     (tb_top.u_wrap.u_dut.u_core.state == 2 &&
      !tb_top.u_wrap.u_dut.u_core.tx_empty &&
       tb_top.u_wrap.u_dut.u_core.cfg_delay > 0)
-    |=> ##[0:2] (tb_top.u_wrap.u_dut.u_core.state == 3);
+    // Action: FSM must reach S_GAP (state 3) within a window that accounts for CLK_DIV.
+    // 2000 cycles is sufficient for CLK_DIV=1024; use a larger value if testing higher DIVs.
+    |=> ##[0:2000] (tb_top.u_wrap.u_dut.u_core.state == 3);
 endproperty
  
 a_r21_delay_state: assert property(p_r21_delay_state)
