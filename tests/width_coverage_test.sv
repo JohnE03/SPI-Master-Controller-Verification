@@ -12,15 +12,14 @@ class width_coverage_test;
             for (int w = 0; w < 3; w++) begin
                 for (int lsb = 0; lsb < 2; lsb++) begin
                     t = new();
-                    assert (!t.randomize() with {
-                        mode == m;       // Pin mode 0
-                        width == w;          // Loop width (00, 01, 10)
-                        lsb_first == lsb;    // Loop shift direction
-                        loopback == 1'b1;    // Use loopback to test pure shifter routing
-                        clk_div inside {[2:8]}; 
-                    }) 
-                    else begin
-                            $error("[SCOREBOARD_ERROR] spi_txn randomization failed");
+                    if (!t.randomize() with {
+                        mode == m;
+                        width == w;
+                        lsb_first == lsb;
+                        loopback == 1'b1;
+                        clk_div inside {[2:8]};
+                    }) begin
+                            $display("[SCOREBOARD_ERROR] spi_txn randomization failed");
                             ref_model.error_count++;
                             return;
                     end

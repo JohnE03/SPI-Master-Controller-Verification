@@ -82,7 +82,8 @@ REGRESSION_TESTS = \
   loopback_test \
   delay_transfer_test \
   error_injection_test \
-  flush_test
+  flush_test \
+  randomized_sanity_test
 
 REGRESSION_SEEDS ?= 20   # 10 * 20 = 200 runs (well under the 10000 cap)
 

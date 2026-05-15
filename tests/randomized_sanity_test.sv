@@ -116,6 +116,7 @@ class randomized_sanity_test;
         coverage.sample_config(.mode(t.mode),
                                .lsb_first(t.lsb_first),
                                .width(t.width));
+        coverage.sample_timing(t.clk_div[15:0], t.delay_cfg[7:0]);
 
             // Step 7 - push TX and assert SS lane 0.
             // SS_CTRL layout (see Register Map): [3:0]=ss_en, [7:4]=ss_val.
