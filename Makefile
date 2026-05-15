@@ -61,7 +61,7 @@ REGRESSION_TESTS = \
   flush_test \
   randomized_sanity_test
 
-# Regression seeds for 3 minutes = 6, for 5 minutes = 
+# Regression seeds for 3 minutes = 6, for 5 minutes = 10
 REGRESSION_SEEDS ?= 6
 
 # ============================================================================
