@@ -196,6 +196,8 @@ class spi_ref_model;
         // and rx_queue.delete() inside this task!
         pred_tx_byte = 8'h0;
         pred_rx_byte = 8'h0;
+        tx_queue.delete();
+        rx_queue.delete();
         $display("[INFO] Scoreboard: Flush predicted (CTRL.EN dropped to 0).");
     endtask
 
