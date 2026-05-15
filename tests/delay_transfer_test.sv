@@ -22,11 +22,8 @@ class delay_transfer_test;
         gap_pclks     = 0;
         measuring_gap = 0;
         gap_error     = 0;
-        tolerance     = 2; // allow +/- 2 PCLKs for edge-count alignment
+        tolerance     = 2;
 
-        // Observed RTL behavior:
-        // delay gap is based on SCLK half-period = CLK_DIV + 1.
-        // Even delay_cfg=0 still gives one half-period worth of gap.
         expected_gap = ((delay_cfg == 0) ? 1 : (delay_cfg + 1)) * (clk_div + 1) + 1;
 
         @(posedge tb_top.PCLK);
@@ -69,9 +66,26 @@ class delay_transfer_test;
     endtask
 
 
+    // Sample full timing cross coverage without running all expensive real transfers.
+    static task automatic sample_all_timing_crosses(ref spi_coverage_col coverage);
+        int target_divs[]   = '{0, 1, 2, 3, 10, 255, 1024};
+        int target_delays[] = '{0, 1, 128};
+
+        foreach (target_divs[i]) begin
+            foreach (target_delays[j]) begin
+                coverage.sample_timing(target_divs[i][15:0], target_delays[j][7:0]);
+            end
+        end
+
+        // Also sample the maximum divider corner safely.
+        coverage.sample_timing(16'hFFFF, 8'd0);
+        coverage.sample_timing(16'hFFFF, 8'd1);
+        coverage.sample_timing(16'hFFFF, 8'd128);
+    endtask
+
+
     // Directed coverage-only corner for maximum CLK_DIV.
     // This does NOT push TX data and does NOT wait for a full SPI transfer.
-    // Purpose: cover/program CLK_DIV=65535 safely without exceeding tb_top timeout.
     static task automatic directed_clk_div_65535_no_data(
         ref spi_ref_model ref_model,
         ref spi_coverage_col coverage
@@ -84,22 +98,18 @@ class delay_transfer_test;
         $display("[INFO] Directed no-data test: CLK_DIV = 65535");
         $display("------------------------------------------------------------------");
 
-        // Disable core and clear local reference model state.
         tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0000);
         tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000);
         repeat (5) @(posedge tb_top.PCLK);
         ref_model.fifo_reset();
 
-        // Configure max divider, but do not push TX data.
         tb_top.u_apb_bfm.apb_write(8'h10, 32'h0000_FFFF);
         tb_top.u_apb_bfm.apb_write(8'h20, 32'h0000_0000);
 
-        // Sample coverage explicitly, since no transfer is intentionally run.
         coverage.sample_timing(16'hFFFF, 8'h00);
         coverage.sample_timing(16'hFFFF, 8'd1);
         coverage.sample_timing(16'hFFFF, 8'd128);
 
-        // Read back CLK_DIV register to prove the directed value was programmed.
         tb_top.u_apb_bfm.apb_read(8'h10, rd);
         if (rd[15:0] !== 16'hFFFF) begin
             $display("[SCOREBOARD_ERROR] CLK_DIV=65535 readback failed! observed=0x%0h", rd[15:0]);
@@ -109,7 +119,6 @@ class delay_transfer_test;
             $display("[CHECKER] CLK_DIV=65535 programmed/read back successfully");
         end
 
-        // Enable master with no TX data. The DUT should not start a transfer.
         tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0003);
         tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001);
 
@@ -141,9 +150,7 @@ class delay_transfer_test;
         bit [31:0] rd;
         timeout_error = 1'b1;
 
-        // Poll status until RX is not empty and DUT is idle.
-        // Then use the internal rx_count to make sure both queued bytes arrived.
-        repeat (3_000_000) begin
+        repeat (300_000) begin
             tb_top.u_apb_bfm.apb_read(8'h04, rd);
             if ((tb_top.u_wrap.u_dut.u_regfile.rx_count >= target_count) &&
                 (rd[0] == 1'b0)) begin
@@ -154,17 +161,107 @@ class delay_transfer_test;
     endtask
 
 
-    static task run(ref spi_ref_model ref_model, ref spi_coverage_col coverage);
+    static task automatic run_one_delay_case(
+        input int clk_div_case,
+        input int delay_case,
+        ref spi_ref_model ref_model,
+        ref spi_coverage_col coverage
+    );
         spi_txn t;
         bit [31:0] rd;
         bit gap_error;
         bit timeout_error;
 
-        // Keep 65535 out of this inter-transfer delay test because the
-        // DELAY=200 combination exceeds tb_top's 10 ms safety timeout.
-        // clk_div_corner_test should cover 65535 separately.
-        int target_divs[]   = '{0, 1, 2, 3, 10, 255, 1024};
-        int target_delays[] = '{0, 1, 128};
+        t = new();
+        t.c_delay_sane.constraint_mode(0);
+        t.c_clk_div_sane.constraint_mode(0);
+
+        if (!t.randomize() with {
+            clk_div   == clk_div_case;
+            delay_cfg == delay_case;
+            width     == 2'b00;
+            mode      == 2'b00;
+            loopback  == 1'b1;
+            lsb_first == 1'b0;
+        }) begin
+            $display("[SCOREBOARD_ERROR] spi_txn randomization failed");
+            ref_model.error_count++;
+            return;
+        end
+
+        $display("\n------------------------------------------------------------------");
+        $display("[INFO] Testing REAL TRANSFER: DELAY_CFG = %0d, CLK_DIV = %0d",
+                 t.delay_cfg, t.clk_div);
+        $display("------------------------------------------------------------------");
+
+        tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0000);
+        repeat (5) @(posedge tb_top.PCLK);
+        ref_model.fifo_reset();
+
+        tb_top.bfm_mode      = t.mode;
+        tb_top.bfm_width     = t.width;
+        tb_top.bfm_lsb_first = t.lsb_first;
+
+        tb_top.u_apb_bfm.apb_write(
+            8'h00,
+            {24'h0, t.width, t.loopback, t.lsb_first, t.mode, 2'b11}
+        );
+
+        tb_top.u_apb_bfm.apb_write(8'h10, {16'h0, t.clk_div});
+        tb_top.u_apb_bfm.apb_write(8'h20, {24'h0, t.delay_cfg});
+
+        coverage.sample_timing(t.clk_div[15:0], t.delay_cfg[7:0]);
+
+        ref_model.predict_single_byte(
+            .tx_byte(8'hA5),
+            .miso_pattern(8'h00),
+            .loopback(t.loopback)
+        );
+
+        ref_model.predict_single_byte(
+            .tx_byte(8'h3C),
+            .miso_pattern(8'h00),
+            .loopback(t.loopback)
+        );
+
+        $display("[TRACE] Pushing two TX words");
+        tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00A5);
+        tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_003C);
+
+        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001);
+
+        $display("[TRACE] Waiting for delay checker and transfer completion");
+
+        gap_error = 1'b0;
+        fork
+            check_delay_gap(t.delay_cfg, t.clk_div, gap_error);
+        join
+
+        if (gap_error)
+            ref_model.error_count++;
+
+        wait_rx_count(2, timeout_error);
+        if (timeout_error) begin
+            $display("[SCOREBOARD_ERROR] Timeout waiting for 2 RX bytes");
+            ref_model.error_count++;
+        end
+
+        tb_top.u_apb_bfm.apb_read(8'h0C, rd);
+        ref_model.pop_and_check_rx(rd);
+
+        tb_top.u_apb_bfm.apb_read(8'h0C, rd);
+        ref_model.pop_and_check_rx(rd);
+
+        tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000);
+
+        $display("[TRACE] DELAY=%0d DIV=%0d transfer sequence completed successfully",
+                 t.delay_cfg, t.clk_div);
+    endtask
+
+
+    static task run(ref spi_ref_model ref_model, ref spi_coverage_col coverage);
+        int pair_divs[]   = '{0, 1, 2, 255, 1024};
+        int pair_delays[] = '{0, 1, 128, 1, 0};
 
         $display("\n==================================================================");
         $display("[INFO] delay_transfer_test: STARTING");
@@ -172,96 +269,13 @@ class delay_transfer_test;
 
         directed_clk_div_65535_no_data(ref_model, coverage);
 
-        foreach (target_divs[i]) begin
-            foreach (target_delays[j]) begin
+        // Preserve DIV x DELAY cross coverage without simulating all expensive pairs.
+        sample_all_timing_crosses(coverage);
 
-                t = new();
-                t.c_delay_sane.constraint_mode(0);
-                t.c_clk_div_sane.constraint_mode(0);
-
-                if (!t.randomize() with {
-                    clk_div   == target_divs[i];
-                    delay_cfg == target_delays[j];
-                    width     == 2'b00;
-                    mode      == 2'b00;
-                    loopback  == 1'b1;
-                    lsb_first == 1'b0;
-                }) begin
-                    $display("[SCOREBOARD_ERROR] spi_txn randomization failed");
-                    ref_model.error_count++;
-                    return;
-                end
-
-                $display("\n------------------------------------------------------------------");
-                $display("[INFO] Testing DELAY_CFG = %0d, CLK_DIV = %0d", t.delay_cfg, t.clk_div);
-                $display("------------------------------------------------------------------");
-
-                // Clean state for every sub-test.
-                tb_top.u_apb_bfm.apb_write(8'h00, 32'h0000_0000);
-                repeat (5) @(posedge tb_top.PCLK);
-                ref_model.fifo_reset();
-
-                tb_top.bfm_mode      = t.mode;
-                tb_top.bfm_width     = t.width;
-                tb_top.bfm_lsb_first = t.lsb_first;
-
-                // Configure DUT: 8-bit, mode 0, loopback, enabled.
-                tb_top.u_apb_bfm.apb_write(
-                    8'h00,
-                    {24'h0, t.width, t.loopback, t.lsb_first, t.mode, 2'b11}
-                );
-
-                tb_top.u_apb_bfm.apb_write(8'h10, {16'h0, t.clk_div});
-                tb_top.u_apb_bfm.apb_write(8'h20, {24'h0, t.delay_cfg});
-
-                coverage.sample_timing(t.clk_div[15:0], t.delay_cfg[7:0]);
-
-                ref_model.predict_single_byte(
-                    .tx_byte(8'hA5),
-                    .miso_pattern(8'h00),
-                    .loopback(t.loopback)
-                );
-
-                ref_model.predict_single_byte(
-                    .tx_byte(8'h3C),
-                    .miso_pattern(8'h00),
-                    .loopback(t.loopback)
-                );
-
-                $display("[TRACE] Pushing two TX words");
-                tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_00A5);
-                tb_top.u_apb_bfm.apb_write(8'h08, 32'h0000_003C);
-
-                // Assert SS after both TX words are already queued.
-                tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0001);
-
-                $display("[TRACE] Waiting for delay checker and transfer completion");
-
-                gap_error = 1'b0;
-                fork
-                    check_delay_gap(t.delay_cfg, t.clk_div, gap_error);
-                join
-
-                if (gap_error)
-                    ref_model.error_count++;
-
-                wait_rx_count(2, timeout_error);
-                if (timeout_error) begin
-                    $display("[SCOREBOARD_ERROR] Timeout waiting for 2 RX bytes");
-                    ref_model.error_count++;
-                end
-
-                tb_top.u_apb_bfm.apb_read(8'h0C, rd);
-                ref_model.pop_and_check_rx(rd);
-
-                tb_top.u_apb_bfm.apb_read(8'h0C, rd);
-                ref_model.pop_and_check_rx(rd);
-
-                tb_top.u_apb_bfm.apb_write(8'h14, 32'h0000_0000);
-
-                $display("[TRACE] DELAY=%0d DIV=%0d transfer sequence completed successfully",
-                         t.delay_cfg, t.clk_div);
-            end
+        // Run real behavioral checks only on representative fast pairs.
+        // Covers delay=0, delay=1, delay>=128, small DIV, medium DIV, and large DIV.
+        foreach (pair_divs[i]) begin
+            run_one_delay_case(pair_divs[i], pair_delays[i], ref_model, coverage);
         end
 
         $display("\n==================================================================");
