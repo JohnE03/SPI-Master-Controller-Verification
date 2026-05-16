@@ -46,7 +46,9 @@ INC_DIRS   ?= +incdir+$(HARNESS) +incdir+$(STUDENT_TB) \
               +incdir+$(STUDENT_TB)/sequences +incdir+$(STUDENT_TB)/tests
 
 # ---- regression list --------------------------------------------------------
-
+# Individual tests kept for documentation/debugging.
+# make run TEST=<name> still works for each test.
+# Fast make regress below ignores this list and runs all_tests once per seed.
 REGRESSION_TESTS = \
   sanity_test \
   reg_access_test \
@@ -120,15 +122,23 @@ endef
 # Fast official regression:
 # Runs one simulator session per seed by dispatching all_tests.
 # all_tests internally calls every required test and resets between them.
-regress: compile
+# run code is written here to save make time calling
+regress:
 	@mkdir -p build
-	@rm -f cov_*.ucdb build/merged.ucdb
-	@echo "=== Running bundled all_tests for $(REGRESSION_SEEDS) seeds ==="
+	@rm -f cov_*.ucdb build/merged.ucdb build/cov_*.ucdb
+	@echo "=== Running bundled all_tests for $(REGRESSION_SEEDS) seed(s) ==="
 	@for s in `seq 1 $(REGRESSION_SEEDS)` ; do \
-		"$(MAKE)" -s run_nocompile TEST=all_tests SEED=$$s WAVES=0 \
-		  > build/log_all_tests_$$s.log 2>&1 ; \
-	done ;
-	-vcover merge -out build/merged.ucdb cov_*.ucdb
+		echo "=== Running all_tests seed $$s ===" ; \
+		vsim -c -coverage work.tb_top \
+		     -do "coverage save -onexit build/cov_all_tests_$$s.ucdb; run -all; quit -f" \
+		     +TESTNAME=all_tests +UVM_TESTNAME=all_tests +SEED=$$s \
+		     > build/log_all_tests_$$s.log 2>&1 ; \
+	done ; \
+	if [ "$(REGRESSION_SEEDS)" = "1" ]; then \
+		cp build/cov_all_tests_1.ucdb build/merged.ucdb ; \
+	else \
+		vcover merge -out build/merged.ucdb build/cov_all_tests_*.ucdb ; \
+	fi
 
 cov:
 	@if [ -f build/merged.ucdb ]; then \
@@ -143,4 +153,4 @@ clean:
 
 endif
 
-.PHONY: compile run run_nocompile run_bonus regress regress_fast cov clean
+.PHONY: compile run run_nocompile run_bonus regress cov clean
