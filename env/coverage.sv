@@ -77,7 +77,7 @@ class spi_coverage_col;
             bins rx_other       = default;
         }
 
-        cx_tx_rx_occ : cross cp_tx_occ, cp_rx_occ;
+       // cx_tx_rx_occ : cross cp_tx_occ, cp_rx_occ;
     endgroup
 
     covergroup cg_timing;

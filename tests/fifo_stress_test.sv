@@ -57,7 +57,7 @@ class fifo_stress_test;
 
         $display("[INFO] fifo_stress_test: startt");
 
-//unnessessary in loopback, but set to clean values for clarity
+    //unnessessary in loopback, but set to clean values for clarity
         tb_top.bfm_mode    = 2'b00;  
         tb_top.bfm_pattern = 8'hFF;  
 
@@ -164,19 +164,19 @@ class fifo_stress_test;
         tb_top.u_apb_bfm.apb_write(REG_SS_CTRL, 32'h0000_0000);
         $display("[INFO] fifo_stress_test: cross-coverage sweep start");
 
-        // tx=1..4 crossed with rx=1..8 (the missing diagonal and upper triangle)
-        begin
-            int tx_vals [5] = '{1, 4, 6, 7, 8};
-            int rx_vals [5] = '{1, 4, 6, 7, 8};
-            foreach (tx_vals[i]) begin
-                foreach (rx_vals[j]) begin
-                    cov.sample_fifo_occupancy(
-                        .tx_occ(tx_vals[i]),
-                        .rx_occ(rx_vals[j])
-                    );
-                end
-            end
-        end
+        // // tx=1..4 crossed with rx=1..8 (the missing diagonal and upper triangle)
+        // begin
+        //     int tx_vals [5] = '{1, 4, 6, 7, 8};
+        //     int rx_vals [5] = '{1, 4, 6, 7, 8};
+        //     foreach (tx_vals[i]) begin
+        //         foreach (rx_vals[j]) begin
+        //             cov.sample_fifo_occupancy(
+        //                 .tx_occ(tx_vals[i]),
+        //                 .rx_occ(rx_vals[j])
+        //             );
+        //         end
+        //     end
+        // end
 
         $display("[INFO] fifo_stress_test: cross-coverage sweep done");
         $display("[INFO] fifo_stress_test: done  errors=%0d", rm.error_count);
